@@ -35,12 +35,13 @@ data class RetrievedChunk(
 @Service
 final class RagIndexService(
     private val client: GeminiClient,
+    private val embeddingModel: EmbeddingModel,
     private val objectMapper: ObjectMapper,
     private val resourceLoader: ResourceLoader,
     @Value("\${hopes.ai.enabled}") private val enabledFlag: Boolean,
     @Value("\${hopes.ai.chunks-path}") private val chunksPath: String,
     @Value("\${hopes.ai.cache-path}") private val cachePath: String,
-    @Value("\${hopes.ai.embedding-model}") private val embeddingModel: String,
+    @Value("\${hopes.ai.embedding-model}") private val embeddingModelName: String,
     @Value("\${hopes.ai.top-k}") private val topK: Int,
     @Value("\${hopes.ai.min-similarity}") private val minSimilarity: Double,
     @Value("\${hopes.ai.index-retry-seconds}") private val indexRetrySeconds: Long,
@@ -111,7 +112,7 @@ final class RagIndexService(
         }
         if (missing.isNotEmpty()) {
             log.info("[ai] 청크 {}개 임베딩 중 (캐시 재사용 {}개)…", missing.size, chunks.size - missing.size)
-            val vectors = client.embed(missing.map { it["text"].asText() }, "RETRIEVAL_DOCUMENT")
+            val vectors = embeddingModel.embed(missing.map { it["text"].asText() }, "RETRIEVAL_DOCUMENT")
             missing.forEachIndexed { i, node ->
                 val id = node["chunk_id"].asText()
                 cache.vectors[id] = vectors[i]
@@ -129,7 +130,7 @@ final class RagIndexService(
             )
         }
         ready = true
-        log.info("[ai] RAG 인덱스 구축 완료: 청크 {}개 (모델: {})", index.size, embeddingModel)
+        log.info("[ai] RAG 인덱스 구축 완료: 청크 {}개 (모델: {})", index.size, embeddingModelName)
     }
 
     /** 질문과 관련된 청크를 최대 topK개 반환. 유사도 미달이면 빈 목록 (호출부는 사실 창작 금지 프롬프트로 처리). */
@@ -157,7 +158,7 @@ final class RagIndexService(
 
     private fun embedQueryCached(text: String): DoubleArray {
         synchronized(queryCache) { queryCache[text]?.let { return it } }
-        val vector = client.embed(listOf(text), "RETRIEVAL_QUERY").first()
+        val vector = embeddingModel.embed(listOf(text), "RETRIEVAL_QUERY").first()
         synchronized(queryCache) { queryCache[text] = vector }
         return vector
     }
@@ -187,7 +188,7 @@ final class RagIndexService(
         return try {
             val root = objectMapper.readTree(file)
             val vectors = root["vectors"]
-            if (root["model"]?.asText() != embeddingModel || vectors == null) return EmbeddingCache()
+            if (root["model"]?.asText() != embeddingModelName || vectors == null) return EmbeddingCache()
             val cache = EmbeddingCache()
             vectors.fieldNames().forEach { name ->
                 cache.vectors[name] = vectors[name].map { it.asDouble() }.toDoubleArray()
@@ -205,7 +206,7 @@ final class RagIndexService(
         try {
             val file = File(cachePath)
             file.parentFile?.mkdirs()
-            objectMapper.writeValue(file, mapOf("model" to embeddingModel, "vectors" to cache.vectors, "hashes" to cache.hashes))
+            objectMapper.writeValue(file, mapOf("model" to embeddingModelName, "vectors" to cache.vectors, "hashes" to cache.hashes))
         } catch (e: Exception) {
             log.warn("[ai] 임베딩 캐시 저장 실패: {}", e.message)
         }
