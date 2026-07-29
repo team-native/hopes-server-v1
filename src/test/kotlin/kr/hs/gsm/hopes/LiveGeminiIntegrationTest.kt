@@ -1,5 +1,7 @@
 package kr.hs.gsm.hopes
 
+import kr.hs.gsm.hopes.ai.E5EmbeddingModel
+import kr.hs.gsm.hopes.ai.EmbeddingModel
 import kr.hs.gsm.hopes.ai.GeminiClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -23,12 +25,13 @@ import org.springframework.boot.test.context.SpringBootTest
 )
 class LiveGeminiIntegrationTest @Autowired constructor(
     private val client: GeminiClient,
+    private val embeddingModel: EmbeddingModel,
 ) {
     @Test
-    fun `실제 Gemini 임베딩과 답변을 생성한다`() {
+    fun `실제 로컬 임베딩과 Gemini 답변을 생성한다`() {
         assertTrue(client.hasKey, "GEMINI_API_KEY가 설정되지 않았습니다")
-        val vector = client.embed(listOf("connection test"), "RETRIEVAL_QUERY").single()
-        assertEquals(GeminiClient.EMBED_DIM, vector.size)
+        val vector = embeddingModel.embed(listOf("connection test"), "RETRIEVAL_QUERY").single()
+        assertEquals(E5EmbeddingModel.EMBED_DIM, vector.size)
 
         val answer = client.generate(
             "Return a short acknowledgement without adding facts.",

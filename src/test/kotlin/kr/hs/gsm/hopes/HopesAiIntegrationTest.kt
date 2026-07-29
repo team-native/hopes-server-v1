@@ -1,6 +1,8 @@
 package kr.hs.gsm.hopes
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import kr.hs.gsm.hopes.ai.EmbeddingModel
+import kr.hs.gsm.hopes.ai.FakeEmbeddingModel
 import kr.hs.gsm.hopes.ai.FakeGeminiClient
 import kr.hs.gsm.hopes.ai.RagIndexService
 import kr.hs.gsm.hopes.domain.EmailVerificationRepository
@@ -44,6 +46,10 @@ class HopesAiIntegrationTest @Autowired constructor(
         @Bean
         @Primary
         fun fakeGeminiClient(): FakeGeminiClient = FakeGeminiClient()
+
+        @Bean
+        @Primary
+        fun fakeEmbeddingModel(): EmbeddingModel = FakeEmbeddingModel()
     }
 
     @BeforeEach

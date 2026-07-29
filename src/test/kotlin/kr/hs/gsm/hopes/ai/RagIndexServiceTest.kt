@@ -19,15 +19,16 @@ class RagIndexServiceTest {
         return file
     }
 
-    private fun service(client: GeminiClient, chunksFile: File): RagIndexService =
+    private fun service(embeddingModel: EmbeddingModel, chunksFile: File): RagIndexService =
         RagIndexService(
-            client = client,
+            client = FakeGeminiClient(),
+            embeddingModel = embeddingModel,
             objectMapper = jacksonObjectMapper(),
             resourceLoader = DefaultResourceLoader(),
             enabledFlag = true,
             chunksPath = chunksFile.toURI().toString(),
             cachePath = File(tempDir, "cache.json").absolutePath,
-            embeddingModel = "test-embedding-model",
+            embeddingModelName = "test-embedding-model",
             topK = 3,
             minSimilarity = 0.55,
             indexRetrySeconds = 0,
@@ -42,29 +43,29 @@ class RagIndexServiceTest {
 
     @Test
     fun `임베딩이 실패해도 재시도해서 인덱스를 완성한다`() {
-        val client = FakeGeminiClient().apply { embedFailures = 2 }
-        buildAndAwait(service(client, writeChunks("기숙사 안내")))
-        assertEquals(listOf("기숙사 안내"), client.embeddedTexts)
+        val embedding = FakeEmbeddingModel().apply { embedFailures = 2 }
+        buildAndAwait(service(embedding, writeChunks("기숙사 안내")))
+        assertEquals(listOf("기숙사 안내"), embedding.embeddedTexts)
     }
 
     @Test
     fun `청크 텍스트가 바뀌면 같은 chunk_id라도 다시 임베딩한다`() {
-        buildAndAwait(service(FakeGeminiClient(), writeChunks("기숙사 안내 v1")))
+        buildAndAwait(service(FakeEmbeddingModel(), writeChunks("기숙사 안내 v1")))
 
         // 같은 chunk_id에 내용만 수정 → 캐시를 무시하고 다시 임베딩해야 한다.
-        val changed = FakeGeminiClient()
+        val changed = FakeEmbeddingModel()
         buildAndAwait(service(changed, writeChunks("기숙사 안내 v2")))
         assertEquals(listOf("기숙사 안내 v2"), changed.embeddedTexts)
 
         // 내용이 같으면 캐시 재사용 → 임베딩 호출 없음.
-        val unchanged = FakeGeminiClient()
+        val unchanged = FakeEmbeddingModel()
         buildAndAwait(service(unchanged, writeChunks("기숙사 안내 v2")))
         assertTrue(unchanged.embeddedTexts.isEmpty())
     }
 
     @Test
     fun `약어가 있으면 정식 명칭을 덧붙여 검색 질의를 확장한다`() {
-        val service = service(FakeGeminiClient(), writeChunks("기숙사 안내"))
+        val service = service(FakeEmbeddingModel(), writeChunks("기숙사 안내"))
         assertTrue(service.expandQuery("기자위 언제 모여?").contains("기숙사자치위원회"))
         assertEquals("안녕", service.expandQuery("안녕"))
     }
