@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
+import io.swagger.v3.oas.annotations.media.Schema
 import kr.hs.gsm.hopes.domain.MessageRole
 import kr.hs.gsm.hopes.domain.Theme
 import java.time.Instant
@@ -27,7 +28,9 @@ data class SignupRequest(
     @field:Size(min = 8, max = 15) @field:Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "비밀번호는 영문과 숫자를 포함해야 합니다")
     val password: String,
     @field:NotBlank @field:Size(min = 8, max = 15) val passwordConfirm: String,
-    @field:Pattern(regexp = "^\\d{6}$", message = "인증번호는 숫자 6자리여야 합니다") val verificationCode: String,
+    @field:Pattern(regexp = "^\\d{6}$", message = "인증번호는 숫자 6자리여야 합니다")
+    @field:Schema(description = "이메일 인증 확인에 사용한 숫자 6자리 코드", example = "123456", pattern = "^\\d{6}$")
+    val verificationCode: String,
     @field:Size(max = 50) val gender: String? = null,
     @field:Size(max = 100) val major: String? = null,
     @field:Min(1) @field:Max(100) val cohort: Int? = null,
@@ -37,15 +40,27 @@ data class LoginRequest(
     @field:NotBlank @field:Size(max = EMAIL_MAX_LENGTH) val username: String,
     @field:NotBlank @field:Size(max = 255) val password: String,
 )
-data class EmailVerificationRequest(@field:Email @field:Size(max = EMAIL_MAX_LENGTH) val email: String)
+data class EmailVerificationRequest(
+    @field:Email @field:Size(max = EMAIL_MAX_LENGTH)
+    @field:Schema(description = "인증번호를 받을 학교 이메일", example = "s12345@gsm.hs.kr")
+    val email: String,
+)
 data class EmailVerificationConfirmRequest(
     @field:Email @field:Size(max = EMAIL_MAX_LENGTH) val email: String,
-    @field:Pattern(regexp = "^\\d{6}$", message = "인증번호는 숫자 6자리여야 합니다") val code: String,
+    @field:Pattern(regexp = "^\\d{6}$", message = "인증번호는 숫자 6자리여야 합니다")
+    @field:Schema(description = "이메일로 발송된 숫자 6자리 코드", example = "123456", pattern = "^\\d{6}$")
+    val code: String,
 )
-data class PasswordResetRequest(@field:Email @field:Size(max = EMAIL_MAX_LENGTH) val email: String)
+data class PasswordResetRequest(
+    @field:Email @field:Size(max = EMAIL_MAX_LENGTH)
+    @field:Schema(description = "비밀번호 재설정 인증번호를 받을 학교 이메일", example = "s12345@gsm.hs.kr")
+    val email: String,
+)
 data class PasswordResetConfirmRequest(
     @field:Email @field:Size(max = EMAIL_MAX_LENGTH) val email: String,
-    @field:Pattern(regexp = "^\\d{6}$", message = "인증번호는 숫자 6자리여야 합니다") val code: String,
+    @field:Pattern(regexp = "^\\d{6}$", message = "인증번호는 숫자 6자리여야 합니다")
+    @field:Schema(description = "비밀번호 재설정용 숫자 6자리 코드", example = "123456", pattern = "^\\d{6}$")
+    val code: String,
     @field:Size(min = 8, max = 15)
     @field:Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "비밀번호는 영문과 숫자를 포함해야 합니다")
     val newPassword: String,

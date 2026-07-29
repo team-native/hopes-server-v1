@@ -111,7 +111,15 @@ class SecurityConfig(private val tokenFilter: AccessTokenFilter, private val obj
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .authorizeHttpRequests {
             it.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/signup/**", "/api/login", "/api/password/**", "/actuator/health").permitAll()
+                .requestMatchers(
+                    "/api/signup/**",
+                    "/api/login",
+                    "/api/password/**",
+                    "/actuator/health",
+                    "/v3/api-docs/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                ).permitAll()
                 .anyRequest().authenticated()
         }
         .exceptionHandling {

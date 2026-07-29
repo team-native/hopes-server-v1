@@ -33,6 +33,14 @@ server:
   port: ${PORT}
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
 hopes:
   ai:
     enabled: ${AI_ENABLED:true}

@@ -29,6 +29,39 @@ class HopesApiIntegrationTest @Autowired constructor(
     private val inquiryRepository: InquiryRepository,
 ) {
     @Test
+    fun `swagger exposes every API and bearer authentication`() {
+        val result = mockMvc.get("/v3/api-docs")
+            .andExpect {
+                status { isOk() }
+                content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+                jsonPath("$.info.title") { value("Hopes API") }
+                jsonPath("$.components.securitySchemes.bearerAuth") { exists() }
+            }
+            .andReturn()
+
+        val paths = objectMapper.readTree(result.response.contentAsString)["paths"]
+        val expectedPaths = setOf(
+            "/api/signup/email-verifications",
+            "/api/signup/email-verifications/confirm",
+            "/api/signup",
+            "/api/login",
+            "/api/password/request",
+            "/api/password/reset",
+            "/api/logout",
+            "/api/main",
+            "/api/chats",
+            "/api/chats/{id}",
+            "/api/chats/{id}/messages",
+            "/api/general",
+            "/api/mypage",
+            "/api/setting/main",
+            "/api/setting",
+            "/api/setting/inquiry",
+        )
+        assertEquals(expectedPaths, paths.fieldNames().asSequence().toSet())
+    }
+
+    @Test
     fun `signup login chat and settings flow`() {
         val email = "s20000@gsm.hs.kr"
         mockMvc.post("/api/signup/email-verifications") {
