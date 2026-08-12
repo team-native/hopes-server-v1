@@ -49,6 +49,7 @@ hopes:
     # 임베딩은 로컬(DJL + PyTorch). embedding-model은 캐시 태그(모델 바뀌면 재임베딩), url은 DJL 모델 위치.
     embedding-model: ${AI_EMBEDDING_MODEL:intfloat/multilingual-e5-large}
     embedding-model-url: ${AI_EMBEDDING_MODEL_URL:djl://ai.djl.huggingface.pytorch/intfloat/multilingual-e5-large}
+    embedding-batch-size: ${AI_EMBEDDING_BATCH_SIZE:4}
     chunks-path: ${AI_CHUNKS_PATH:classpath:data/gsm_guide_rag_chunks.jsonl}
     cache-path: ${AI_CACHE_PATH:./data/embeddings_cache.json}
     top-k: ${AI_TOP_K:3}
