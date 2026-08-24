@@ -123,6 +123,27 @@ class AuthController(
     fun logout(authentication: Authentication) = MessageEnvelope("로그아웃되었습니다").also {
         authService.logout(authentication.name)
     }
+
+    @DeleteMapping("/account")
+    @Operation(
+        summary = "회원탈퇴",
+        description = "비밀번호를 다시 확인한 뒤 계정과 대화, 메시지, 문의를 영구 삭제합니다. 성공하면 기존 액세스 토큰도 즉시 사용할 수 없습니다.",
+        security = [SecurityRequirement(name = "bearerAuth")],
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "회원탈퇴 완료"),
+            ApiResponse(responseCode = "400", description = "요청 형식 오류"),
+            ApiResponse(responseCode = "401", description = "인증 실패 또는 비밀번호 불일치"),
+        ]
+    )
+    fun deleteAccount(
+        authentication: Authentication,
+        @Valid @RequestBody request: DeleteAccountRequest,
+    ): ResponseEntity<Void> {
+        authService.deleteAccount(authentication.name, request)
+        return ResponseEntity.noContent().build()
+    }
 }
 
 @RestController

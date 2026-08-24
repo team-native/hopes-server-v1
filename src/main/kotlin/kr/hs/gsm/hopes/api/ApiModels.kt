@@ -40,6 +40,9 @@ data class LoginRequest(
     @field:NotBlank @field:Size(max = EMAIL_MAX_LENGTH) val username: String,
     @field:NotBlank @field:Size(max = 255) val password: String,
 )
+data class DeleteAccountRequest(
+    @field:NotBlank @field:Size(max = 255) val password: String,
+)
 data class EmailVerificationRequest(
     @field:Email @field:Size(max = EMAIL_MAX_LENGTH)
     @field:Schema(description = "인증번호를 받을 학교 이메일", example = "s12345@gsm.hs.kr")

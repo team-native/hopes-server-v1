@@ -65,6 +65,10 @@ class VerificationService(
 @Service
 class AuthService(
     private val users: UserRepository,
+    private val conversations: ConversationRepository,
+    private val messages: ChatMessageRepository,
+    private val inquiries: InquiryRepository,
+    private val verifications: EmailVerificationRepository,
     private val passwordEncoder: PasswordEncoder,
     private val tokenService: AccessTokenService,
     private val verificationService: VerificationService,
@@ -113,6 +117,25 @@ class AuthService(
         val user = users.findByEmail(email)
             ?: throw ApiException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다")
         user.tokenVersion += 1
+    }
+
+    @Transactional
+    fun deleteAccount(email: String, request: DeleteAccountRequest) {
+        val user = users.findByEmail(email)
+            ?: throw ApiException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다")
+        if (!passwordEncoder.matches(request.password, user.passwordHash)) {
+            throw ApiException(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다")
+        }
+
+        conversations.findAllByUserIdOrderByUpdatedAtDesc(user.id!!).forEach { conversation ->
+            messages.deleteAllByConversationId(conversation.id!!)
+        }
+        inquiries.deleteAllByUserId(user.id!!)
+        conversations.deleteAllByUserId(user.id!!)
+        if (verifications.existsById(user.email)) verifications.deleteById(user.email)
+        rateLimiter.resetLogin(user.username, user.email)
+        users.delete(user)
+        users.flush()
     }
 
     @Transactional
