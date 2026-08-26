@@ -1,0 +1,75 @@
+name: DB 외부 백업
+
+on:
+  schedule:
+    - cron: "10 19 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: DB-외부-백업
+  cancel-in-progress: false
+
+jobs:
+  encrypted-backup:
+    name: 암호화 백업 보관
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 백업 공개 인증서 받기
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: ops/backup/db-backup-recovery-cert.pem
+          sparse-checkout-cone-mode: false
+
+      - name: 제한된 SSH 키 준비
+        env:
+          BACKUP_SSH_KEY: ${{ secrets.HOPES_BACKUP_SSH_KEY }}
+        run: |
+          test -n "$BACKUP_SSH_KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$BACKUP_SSH_KEY" > ~/.ssh/hopes-backup
+          chmod 600 ~/.ssh/hopes-backup
+          printf '%s\n' '[ssh.gsmsv.site]:21116 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKtHrHesrY9tuyv5TJdVoUK2JeBFPkFXN6PAnq7So51T' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: 백업 수신 및 암호화
+        id: backup
+        run: |
+          plain="hopes-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+          encrypted="$plain.cms"
+          ssh -i ~/.ssh/hopes-backup \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -p 21116 \
+            ubuntu@ssh.gsmsv.site > "$plain"
+          test -s "$plain"
+          gzip -t "$plain"
+          openssl cms -encrypt -binary -aes-256-cbc -outform DER \
+            -in "$plain" \
+            -out "$encrypted" \
+            ops/backup/db-backup-recovery-cert.pem
+          openssl cms -cmsout -inform DER -in "$encrypted" -noout
+          sha256sum "$encrypted" > "$encrypted.sha256"
+          rm -f "$plain"
+          echo "encrypted=$encrypted" >> "$GITHUB_OUTPUT"
+
+      - name: 암호화 백업 30일 보관
+        uses: actions/upload-artifact@v4
+        with:
+          name: hopes-db-backup-${{ github.run_id }}
+          path: |
+            ${{ steps.backup.outputs.encrypted }}
+            ${{ steps.backup.outputs.encrypted }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: SSH 개인키 제거
+        if: always()
+        run: rm -f ~/.ssh/hopes-backup
