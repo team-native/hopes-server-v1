@@ -1,0 +1,11 @@
+[Unit]
+Description=Hopes MySQL weekly restore verification timer
+
+[Timer]
+OnCalendar=Sat *-*-* 19:30:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+Unit=hopes-db-restore-verify.service
+
+[Install]
+WantedBy=timers.target

@@ -2,6 +2,8 @@
 
 Notion 기능명세서와 API 명세서를 기준으로 만든 Kotlin/Spring Boot REST API입니다.
 
+DB 백업·보관·복원 검증 정책은 [docs/DB_BACKUP.md](docs/DB_BACKUP.md)를 참고하세요.
+
 ## 준비
 
 - JDK 21
