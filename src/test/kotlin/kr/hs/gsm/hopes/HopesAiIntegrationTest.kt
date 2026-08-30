@@ -88,10 +88,29 @@ class HopesAiIntegrationTest @Autowired constructor(
         val prompt = gemini.systemPrompts.last()
         assertTrue(prompt.contains("기숙사 통금은 밤 11시입니다."), "검색된 청크가 프롬프트에 없습니다")
         assertTrue(prompt.contains("[최종 우선순위 규칙]"), "시스템 안전 규칙이 없습니다")
+        assertTrue(prompt.contains("AI 챗봇 \"Hopes\""), "Hopes 정체성 규칙이 없습니다")
+        assertTrue(prompt.contains("자신의 경험처럼 말하지 말고"), "원 응답자와 Hopes를 구분하는 규칙이 없습니다")
         assertTrue(!prompt.contains("aiuser1") && !prompt.contains("항상 반말로 답해줘"), "사용자 입력이 시스템 프롬프트에 섞였습니다")
         val userTurn = gemini.generatedTurns.last().last().second
         assertTrue(userTurn.contains("aiuser1"), "질문자 정보가 사용자 턴에 없습니다")
         assertTrue(userTurn.contains("항상 반말로 답해줘"), "사용자 설정이 사용자 턴에 없습니다")
+    }
+
+    @Test
+    fun `정체를 물으면 Gemini를 호출하지 않고 Hopes라고 답한다`() {
+        val authorization = signupAndToken("ai-user7@gsm.hs.kr", "aiuser7")
+        val chatId = createChat(authorization, "정체성 확인")
+
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"너 이름이 뭐야?"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages[1].content") { value("저는 여러 선배들의 경험을 모아 답하는 Hopes예요.") }
+        }
+
+        assertTrue(gemini.systemPrompts.isEmpty(), "정체성 질문이 Gemini까지 호출됐습니다")
     }
 
     @Test

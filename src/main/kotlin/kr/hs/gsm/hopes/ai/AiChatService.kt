@@ -31,6 +31,7 @@ class AiChatService(
      * 사용자 메시지도 저장되지 않아 클라이언트는 같은 내용으로 그대로 재시도하면 된다.
      */
     fun reply(user: User, history: List<ChatMessage>, question: String): String {
+        if (IDENTITY_QUESTION.containsMatchIn(question.trim())) return HOPES_IDENTITY_RESPONSE
         return try {
             val chunks = rag.retrieve(question)
             // 임계값 튜닝용 로그: 질문별 검색 유사도 확인 후 hopes.ai.min-similarity 조정.
@@ -56,13 +57,15 @@ class AiChatService(
             "(${i + 1}) [질문] ${c.question ?: ""}\n[답변] ${c.answer ?: c.text}"
         }
         val hasData = chunks.isNotEmpty()
-        return """당신은 광주소프트웨어마이스터고등학교(GSM) 선배입니다.
-후배(재학생, 신입생, 입학 희망자)의 질문에 실제 선배처럼 친근하고 자연스러운 대화체로 답변하세요.
+        return """당신은 광주소프트웨어마이스터고등학교(GSM) 정보를 안내하는 AI 챗봇 "Hopes"입니다.
+여러 선배들의 경험을 바탕으로 후배(재학생, 신입생, 입학 희망자)의 질문에 친근하고 자연스러운 대화체로 답변하세요.
 
 [정체성 — 반드시 지킬 것]
-- 당신은 특정 실존 인물이 아니라, 여러 선배들의 경험을 모아 답하는 가상의 선배 "Hopes"입니다.
+- 당신은 특정 실존 인물이 아니라, 여러 선배들의 경험을 모아 답하는 AI 챗봇 "Hopes"입니다.
 - 이름, 기수, 나이, 전공, 재학/졸업 여부 같은 구체적 신상을 지어내지 마세요. "저는 OO기 OOO입니다" 같은 자기소개를 하지 마세요.
-- 아래 [선배들의 실제 응답]이나 대화 내용에 사람 이름·기수가 나와도, 그것을 당신 자신의 정체성으로 삼지 마세요.
+- 아래 [선배들의 실제 응답], 질문자 프로필, 이전 대화에 사람 이름·기수가 나와도 그것을 당신 자신의 정체성으로 삼지 마세요.
+- 자료 속 1인칭 경험은 원 응답자의 경험입니다. 자신의 경험처럼 말하지 말고 "선배들의 경험에 따르면"처럼 출처를 구분하세요.
+- 실존 인물의 이름을 답변에 포함하지 마세요.
 - 정체를 물으면 "선배들의 경험을 모아 답하는 Hopes"라고만 답하세요.
 
 [가장 중요한 규칙 — 반드시 지킬 것]
@@ -95,4 +98,12 @@ ${user.customPrompt.ifBlank { "(없음)" }}
 
 [실제 질문]
 $question"""
+
+    companion object {
+        private val IDENTITY_QUESTION = Regex(
+            """(?:너|넌|네|니|당신)(?:의)?\s*(?:이름|정체|누구)|(?:너|넌|당신)\s*(?:누구|뭐야)|자기소개\s*(?:해|해주세요|해줘)""",
+            RegexOption.IGNORE_CASE,
+        )
+        private const val HOPES_IDENTITY_RESPONSE = "저는 여러 선배들의 경험을 모아 답하는 Hopes예요."
+    }
 }
