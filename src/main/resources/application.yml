@@ -55,7 +55,7 @@ hopes:
     top-k: ${AI_TOP_K:3}
     min-similarity: ${AI_MIN_SIMILARITY:0.55}
     history-max-turns: ${AI_HISTORY_MAX_TURNS:20}
-    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:2048}
+    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:640}
     index-retry-seconds: ${AI_INDEX_RETRY_SECONDS:30}
   rate-limit:
     messages-per-minute: ${RATE_LIMIT_MESSAGES_PER_MINUTE:10}
