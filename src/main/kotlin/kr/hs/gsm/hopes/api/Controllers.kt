@@ -174,6 +174,23 @@ class MainController(private val chats: ChatService) {
         @RequestParam(defaultValue = "50") messageSize: Int,
     ) = chats.get(authentication.name, id, messagePage, messageSize)
 
+    @DeleteMapping("/chats/{id}")
+    @Operation(
+        summary = "대화 개별 삭제",
+        description = "로그인한 사용자가 소유한 대화와 해당 대화의 모든 메시지를 영구 삭제합니다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "대화 삭제 완료"),
+            ApiResponse(responseCode = "401", description = "인증 실패"),
+            ApiResponse(responseCode = "404", description = "본인 소유의 대화를 찾을 수 없음"),
+        ]
+    )
+    fun delete(authentication: Authentication, @PathVariable id: Long): ResponseEntity<Void> {
+        chats.delete(authentication.name, id)
+        return ResponseEntity.noContent().build()
+    }
+
     @PostMapping("/chats/{id}/messages")
     @Operation(summary = "메시지 전송 및 AI 답변 생성")
     fun send(authentication: Authentication, @PathVariable id: Long, @Valid @RequestBody request: SendMessageRequest) = chats.send(authentication.name, id, request)

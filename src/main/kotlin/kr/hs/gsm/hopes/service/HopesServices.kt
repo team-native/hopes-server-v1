@@ -248,6 +248,13 @@ class ChatService(
     fun get(email: String, id: Long, messagePage: Int, messageSize: Int): ChatResponse =
         detail(requireConversation(users.requireUser(email), id), messagePage, messageSize)
 
+    @Transactional
+    fun delete(email: String, id: Long) {
+        val conversation = requireConversation(users.requireUser(email), id)
+        messages.deleteAllByConversationId(conversation.id!!)
+        conversations.delete(conversation)
+    }
+
     fun send(email: String, id: Long, request: SendMessageRequest): ChatResponse {
         rateLimiter.checkMessage(email)
         val user = users.requireUser(email)

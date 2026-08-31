@@ -67,6 +67,41 @@ class HopesApiIntegrationTest @Autowired constructor(
             "/api/setting/inquiry",
         )
         assertEquals(expectedPaths, paths.fieldNames().asSequence().toSet())
+        assert(paths["/api/chats/{id}"].has("delete"))
+    }
+
+    @Test
+    fun `사용자는 본인의 대화 하나만 삭제할 수 있다`() {
+        val ownerEmail = "chat-owner@gsm.hs.kr"
+        val ownerAuthorization = signupAndAuthorization(ownerEmail, "chat-owner")
+        val otherAuthorization = signupAndAuthorization("chat-other@gsm.hs.kr", "chat-other")
+
+        val chatResult = mockMvc.post("/api/chats") {
+            header("Authorization", ownerAuthorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"title":"개별 삭제할 대화"}"""
+        }.andExpect { status { isCreated() } }.andReturn()
+        val chatId = objectMapper.readTree(chatResult.response.contentAsString)["id"].asLong()
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", ownerAuthorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"함께 삭제할 메시지"}"""
+        }.andExpect { status { isOk() } }
+
+        mockMvc.delete("/api/chats/$chatId") {
+            header("Authorization", otherAuthorization)
+        }.andExpect { status { isNotFound() } }
+        assert(conversationRepository.existsById(chatId))
+
+        mockMvc.delete("/api/chats/$chatId") {
+            header("Authorization", ownerAuthorization)
+        }.andExpect { status { isNoContent() } }
+
+        assert(!conversationRepository.existsById(chatId))
+        assertEquals(0, messageRepository.findAllByConversationIdOrderByCreatedAtAscIdAsc(chatId).size)
+        mockMvc.get("/api/chats/$chatId") {
+            header("Authorization", ownerAuthorization)
+        }.andExpect { status { isNotFound() } }
     }
 
     @Test
@@ -208,5 +243,22 @@ class HopesApiIntegrationTest @Autowired constructor(
             content = """{"content":"급식 기능도 추가해주세요"}"""
         }.andExpect { status { isAccepted() } }
         assertEquals("급식 기능도 추가해주세요", inquiryRepository.findAll().single().content)
+    }
+
+    private fun signupAndAuthorization(email: String, username: String): String {
+        mockMvc.post("/api/signup/email-verifications") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"email":"$email"}"""
+        }.andExpect { status { isAccepted() } }
+        val verificationCode = verificationRepository.findById(email).orElseThrow().code
+        val signupResult = mockMvc.post("/api/signup") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{
+              "email":"$email", "username":"$username", "password":"password1",
+              "passwordConfirm":"password1", "verificationCode":"$verificationCode"
+            }"""
+        }.andExpect { status { isCreated() } }.andReturn()
+        val token = objectMapper.readTree(signupResult.response.contentAsString)["accessToken"].asText()
+        return "Bearer $token"
     }
 }
