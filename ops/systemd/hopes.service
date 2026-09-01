@@ -1,0 +1,19 @@
+[Unit]
+Description=Hopes Kotlin Spring Boot API
+After=network-online.target mysql.service
+Wants=network-online.target mysql.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/hopes
+EnvironmentFile=/opt/hopes/hopes.env
+ExecStart=/usr/bin/java -Dfile.encoding=UTF-8 -Xms256m -Xmx768m -jar /opt/hopes/hopes-server.jar
+Restart=always
+RestartSec=5
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
