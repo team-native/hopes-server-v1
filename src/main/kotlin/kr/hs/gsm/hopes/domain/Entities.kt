@@ -5,6 +5,7 @@ import java.time.Instant
 
 enum class Theme { DARK, LIGHT }
 enum class MessageRole { USER, ASSISTANT }
+enum class ClientPlatform { WEB, APP, UNKNOWN }
 
 @Entity
 @Table(name = "users")
@@ -66,6 +67,9 @@ class ChatMessage(
     var role: MessageRole = MessageRole.USER,
     @Column(nullable = false, length = 12000)
     var content: String = "",
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    var clientPlatform: ClientPlatform = ClientPlatform.UNKNOWN,
     @Column(nullable = false)
     var createdAt: Instant = Instant.now(),
 )

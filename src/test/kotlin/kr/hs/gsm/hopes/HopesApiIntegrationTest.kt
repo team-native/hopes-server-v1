@@ -71,6 +71,48 @@ class HopesApiIntegrationTest @Autowired constructor(
     }
 
     @Test
+    fun `앱 헤더로 질문 출처를 기록한다`() {
+        val authorization = signupAndAuthorization("monitor-user@gsm.hs.kr", "monitor-user")
+        val chatResult = mockMvc.post("/api/chats") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"title":"출처 확인"}"""
+        }.andExpect { status { isCreated() } }.andReturn()
+        val chatId = objectMapper.readTree(chatResult.response.contentAsString)["id"].asLong()
+
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            header("X-Hopes-Client", "APP")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"앱에서 보낸 질문"}"""
+        }.andExpect { status { isOk() } }
+
+        val saved = messageRepository.findAllByConversationIdOrderByCreatedAtAscIdAsc(chatId).single()
+        assertEquals("APP", saved.clientPlatform.name)
+    }
+
+    @Test
+    fun `헤더가 없으면 브라우저 User-Agent를 웹으로 판별한다`() {
+        val authorization = signupAndAuthorization("web-monitor@gsm.hs.kr", "web-monitor")
+        val chatResult = mockMvc.post("/api/chats") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"title":"웹 출처 확인"}"""
+        }.andExpect { status { isCreated() } }.andReturn()
+        val chatId = objectMapper.readTree(chatResult.response.contentAsString)["id"].asLong()
+
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            header("User-Agent", "Mozilla/5.0 Chrome/140.0")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"웹에서 보낸 질문"}"""
+        }.andExpect { status { isOk() } }
+
+        val saved = messageRepository.findAllByConversationIdOrderByCreatedAtAscIdAsc(chatId).single()
+        assertEquals("WEB", saved.clientPlatform.name)
+    }
+
+    @Test
     fun `사용자는 본인의 대화 하나만 삭제할 수 있다`() {
         val ownerEmail = "chat-owner@gsm.hs.kr"
         val ownerAuthorization = signupAndAuthorization(ownerEmail, "chat-owner")

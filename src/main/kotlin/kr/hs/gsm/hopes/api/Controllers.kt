@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import kr.hs.gsm.hopes.service.AuthService
 import kr.hs.gsm.hopes.service.ChatService
+import kr.hs.gsm.hopes.service.ClientPlatformResolver
 import kr.hs.gsm.hopes.service.UserService
 import kr.hs.gsm.hopes.service.VerificationService
 import org.springframework.http.HttpStatus
@@ -150,7 +151,10 @@ class AuthController(
 @RequestMapping("/api")
 @Tag(name = "채팅", description = "대화 목록, 대화 생성, 메시지 조회와 AI 답변")
 @SecurityRequirement(name = "bearerAuth")
-class MainController(private val chats: ChatService) {
+class MainController(
+    private val chats: ChatService,
+    private val clientPlatformResolver: ClientPlatformResolver,
+) {
     @GetMapping("/main")
     @Operation(summary = "메인 화면과 대화 목록 조회")
     fun main(
@@ -192,8 +196,22 @@ class MainController(private val chats: ChatService) {
     }
 
     @PostMapping("/chats/{id}/messages")
-    @Operation(summary = "메시지 전송 및 AI 답변 생성")
-    fun send(authentication: Authentication, @PathVariable id: Long, @Valid @RequestBody request: SendMessageRequest) = chats.send(authentication.name, id, request)
+    @Operation(
+        summary = "메시지 전송 및 AI 답변 생성",
+        description = "X-Hopes-Client 헤더에 WEB 또는 APP을 전달하면 질문 출처가 정확히 기록됩니다. 헤더가 없으면 User-Agent로 판별하며 판별할 수 없는 경우 UNKNOWN으로 저장합니다.",
+    )
+    fun send(
+        authentication: Authentication,
+        @PathVariable id: Long,
+        @RequestHeader(name = "X-Hopes-Client", required = false) explicitPlatform: kr.hs.gsm.hopes.domain.ClientPlatform?,
+        httpRequest: HttpServletRequest,
+        @Valid @RequestBody request: SendMessageRequest,
+    ) = chats.send(
+        authentication.name,
+        id,
+        request,
+        clientPlatformResolver.resolve(explicitPlatform, httpRequest.getHeader("User-Agent")),
+    )
 }
 
 @RestController

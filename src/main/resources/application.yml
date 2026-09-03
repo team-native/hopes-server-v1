@@ -73,3 +73,5 @@ hopes:
     from: ${MAIL_FROM}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  discord:
+    question-log-webhook-url: ${DISCORD_QUESTION_LOG_WEBHOOK_URL:}
