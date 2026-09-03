@@ -8,11 +8,13 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.Locale
 
 @Service
 class VerificationService(
@@ -65,6 +67,10 @@ class VerificationService(
 @Service
 class AuthService(
     private val users: UserRepository,
+    private val conversations: ConversationRepository,
+    private val messages: ChatMessageRepository,
+    private val inquiries: InquiryRepository,
+    private val verifications: EmailVerificationRepository,
     private val passwordEncoder: PasswordEncoder,
     private val tokenService: AccessTokenService,
     private val verificationService: VerificationService,
@@ -113,6 +119,25 @@ class AuthService(
         val user = users.findByEmail(email)
             ?: throw ApiException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다")
         user.tokenVersion += 1
+    }
+
+    @Transactional
+    fun deleteAccount(email: String, request: DeleteAccountRequest) {
+        val user = users.findByEmail(email)
+            ?: throw ApiException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다")
+        if (!passwordEncoder.matches(request.password, user.passwordHash)) {
+            throw ApiException(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다")
+        }
+
+        conversations.findAllByUserIdOrderByUpdatedAtDesc(user.id!!).forEach { conversation ->
+            messages.deleteAllByConversationId(conversation.id!!)
+        }
+        inquiries.deleteAllByUserId(user.id!!)
+        conversations.deleteAllByUserId(user.id!!)
+        if (verifications.existsById(user.email)) verifications.deleteById(user.email)
+        rateLimiter.resetLogin(user.username, user.email)
+        users.delete(user)
+        users.flush()
     }
 
     @Transactional
@@ -200,6 +225,7 @@ class ChatService(
     private val ai: AiChatService,
     private val transactionTemplate: TransactionTemplate,
     private val rateLimiter: RateLimiter,
+    private val discordQuestionLog: DiscordQuestionLogService,
 ) {
     fun main(email: String, keyword: String?, page: Int, size: Int): MainResponse {
         val user = users.requireUser(email)
@@ -225,7 +251,14 @@ class ChatService(
     fun get(email: String, id: Long, messagePage: Int, messageSize: Int): ChatResponse =
         detail(requireConversation(users.requireUser(email), id), messagePage, messageSize)
 
-    fun send(email: String, id: Long, request: SendMessageRequest): ChatResponse {
+    @Transactional
+    fun delete(email: String, id: Long) {
+        val conversation = requireConversation(users.requireUser(email), id)
+        messages.deleteAllByConversationId(conversation.id!!)
+        conversations.delete(conversation)
+    }
+
+    fun send(email: String, id: Long, request: SendMessageRequest, clientPlatform: ClientPlatform = ClientPlatform.UNKNOWN): ChatResponse {
         rateLimiter.checkMessage(email)
         val user = users.requireUser(email)
         val conversation = requireConversation(user, id)
@@ -233,6 +266,16 @@ class ChatService(
             throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI가 아직 준비 중입니다. 잠시 후 다시 시도해주세요")
         }
         val content = request.content.trim()
+        val receivedAt = Instant.now()
+        discordQuestionLog.publish(
+            DiscordQuestionLogEvent(
+            conversationId = conversation.id!!,
+            clientPlatform = clientPlatform,
+            question = content,
+            receivedAt = receivedAt,
+            )
+        )
+
         // 전체 대화를 메모리에 올리지 않고 Gemini에 전달할 최근 내역만 조회한다.
         val history = if (ai.enabled && ai.historyLimit > 0) {
             messages.findAllByConversationIdOrderByCreatedAtDescIdDesc(
@@ -246,7 +289,15 @@ class ChatService(
         // 실패하면 여기서 예외가 전파되어 아무것도 저장되지 않으므로 클라이언트는 같은 내용으로 재시도하면 된다.
         val answer = if (ai.enabled) ai.reply(user, history, content) else null
         transactionTemplate.executeWithoutResult {
-            messages.save(ChatMessage(conversation = conversation, role = MessageRole.USER, content = content, createdAt = Instant.now()))
+            messages.save(
+                ChatMessage(
+                    conversation = conversation,
+                    role = MessageRole.USER,
+                    content = content,
+                    clientPlatform = clientPlatform,
+                    createdAt = receivedAt,
+                )
+            )
             if (conversation.title == "새 대화") conversation.title = content.take(40)
             answer?.let {
                 messages.save(ChatMessage(conversation = conversation, role = MessageRole.ASSISTANT, content = it.take(12000), createdAt = Instant.now()))
@@ -285,5 +336,18 @@ class ChatService(
     companion object {
         private const val DEFAULT_PAGE_SIZE = 50
         private const val MAX_PAGE_SIZE = 100
+    }
+}
+
+@Component
+class ClientPlatformResolver {
+    fun resolve(explicitPlatform: ClientPlatform?, userAgent: String?): ClientPlatform {
+        if (explicitPlatform != null) return explicitPlatform
+        val normalized = userAgent?.lowercase(Locale.ROOT).orEmpty()
+        return when {
+            listOf("android", "iphone", "ipad", "dart/", "okhttp", "cfnetwork").any(normalized::contains) -> ClientPlatform.APP
+            normalized.contains("mozilla/") -> ClientPlatform.WEB
+            else -> ClientPlatform.UNKNOWN
+        }
     }
 }

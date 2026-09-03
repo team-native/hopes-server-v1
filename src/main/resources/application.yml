@@ -33,6 +33,14 @@ server:
   port: ${PORT}
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
 hopes:
   ai:
     enabled: ${AI_ENABLED:true}
@@ -41,12 +49,13 @@ hopes:
     # 임베딩은 로컬(DJL + PyTorch). embedding-model은 캐시 태그(모델 바뀌면 재임베딩), url은 DJL 모델 위치.
     embedding-model: ${AI_EMBEDDING_MODEL:intfloat/multilingual-e5-large}
     embedding-model-url: ${AI_EMBEDDING_MODEL_URL:djl://ai.djl.huggingface.pytorch/intfloat/multilingual-e5-large}
+    embedding-batch-size: ${AI_EMBEDDING_BATCH_SIZE:4}
     chunks-path: ${AI_CHUNKS_PATH:classpath:data/gsm_guide_rag_chunks.jsonl}
     cache-path: ${AI_CACHE_PATH:./data/embeddings_cache.json}
     top-k: ${AI_TOP_K:3}
     min-similarity: ${AI_MIN_SIMILARITY:0.55}
     history-max-turns: ${AI_HISTORY_MAX_TURNS:20}
-    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:2048}
+    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:640}
     index-retry-seconds: ${AI_INDEX_RETRY_SECONDS:30}
   rate-limit:
     messages-per-minute: ${RATE_LIMIT_MESSAGES_PER_MINUTE:10}
@@ -64,3 +73,5 @@ hopes:
     from: ${MAIL_FROM}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  discord:
+    question-log-webhook-url: ${DISCORD_QUESTION_LOG_WEBHOOK_URL:}

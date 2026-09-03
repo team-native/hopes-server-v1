@@ -2,6 +2,8 @@
 
 Notion 기능명세서와 API 명세서를 기준으로 만든 Kotlin/Spring Boot REST API입니다.
 
+운영 서버의 백엔드·백업 위치와 장애 점검은 [docs/SERVER_OPERATIONS.md](docs/SERVER_OPERATIONS.md), DB 백업·보관·복원 검증 정책은 [docs/DB_BACKUP.md](docs/DB_BACKUP.md)를 참고하세요.
+
 ## 준비
 
 - JDK 21

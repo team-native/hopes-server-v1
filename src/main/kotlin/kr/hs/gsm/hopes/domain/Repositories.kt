@@ -55,4 +55,8 @@ interface RateLimitWindowRepository : JpaRepository<RateLimitWindow, String> {
     fun deleteExpiredBefore(@Param("minute") minute: Long): Int
 }
 
-interface InquiryRepository : JpaRepository<Inquiry, Long>
+interface InquiryRepository : JpaRepository<Inquiry, Long> {
+    @Modifying
+    @Query("delete from Inquiry inquiry where inquiry.user.id = :userId")
+    fun deleteAllByUserId(@Param("userId") userId: Long): Int
+}
