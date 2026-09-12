@@ -10,9 +10,11 @@ import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import java.time.Duration
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 
 data class SchoolMeal(
     val date: LocalDate,
@@ -162,10 +164,25 @@ internal object MealDateParser {
     private val monthAndDay = Regex("(?<!\\d)(\\d{1,2})\\s*월\\s*(\\d{1,2})\\s*일")
     private val numericMonthAndDay = Regex("(?<![\\d년])(\\d{1,2})[./-](\\d{1,2})(?!\\d)")
     private val dayOnly = Regex("(?<!\\d)(\\d{1,2})\\s*일")
+    private val weekday = Regex("(?:(지난|이번|다음)\\s*주\\s*)?(월|화|수|목|금|토|일)요일")
 
     fun resolve(question: String, today: LocalDate): LocalDate {
         RELATIVE_DAYS.firstOrNull { (word, _) -> question.contains(word) }
             ?.let { (_, offset) -> return today.plusDays(offset) }
+
+        weekday.find(question)?.destructured?.let { (week, day) ->
+            val targetDay = WEEKDAYS.getValue(day)
+            if (week.isBlank()) return today.with(TemporalAdjusters.nextOrSame(targetDay))
+
+            val weekOffset = when (week) {
+                "지난" -> -1L
+                "이번" -> 0L
+                "다음" -> 1L
+                else -> 0L
+            }
+            val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            return monday.plusWeeks(weekOffset).plusDays((targetDay.value - DayOfWeek.MONDAY.value).toLong())
+        }
 
         koreanFullDate.find(question)?.destructured?.let { (year, month, day) ->
             return checkedDate(year.toInt(), month.toInt(), day.toInt())
@@ -198,6 +215,16 @@ internal object MealDateParser {
         "내일" to 1L,
         "모레" to 2L,
         "글피" to 3L,
+    )
+
+    private val WEEKDAYS = mapOf(
+        "월" to DayOfWeek.MONDAY,
+        "화" to DayOfWeek.TUESDAY,
+        "수" to DayOfWeek.WEDNESDAY,
+        "목" to DayOfWeek.THURSDAY,
+        "금" to DayOfWeek.FRIDAY,
+        "토" to DayOfWeek.SATURDAY,
+        "일" to DayOfWeek.SUNDAY,
     )
 }
 
