@@ -75,3 +75,10 @@ hopes:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
   discord:
     question-log-webhook-url: ${DISCORD_QUESTION_LOG_WEBHOOK_URL:}
+  neis:
+    base-url: ${NEIS_BASE_URL:https://open.neis.go.kr}
+    api-key: ${NEIS_API_KEY:}
+    education-office-code: ${NEIS_EDUCATION_OFFICE_CODE:F10}
+    school-code: ${NEIS_SCHOOL_CODE:7380292}
+    connect-timeout-ms: ${NEIS_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${NEIS_READ_TIMEOUT_MS:5000}

@@ -46,7 +46,7 @@ mvn spring-boot:run
 | GET | `/api/main?searchKeyword=&page=0&size=50` | 대화 목록/검색(최대 100개) |
 | POST | `/api/chats` | 새 대화 생성 |
 | GET | `/api/chats/{id}?messagePage=0&messageSize=50` | 대화 불러오기(최신 페이지부터, 최대 100개) |
-| POST | `/api/chats/{id}/messages` | 사용자 질문 저장 |
+| POST | `/api/chats/{id}/messages` | 사용자 질문 저장 및 AI/급식 답변 생성 |
 | PATCH | `/api/general` | 다크/라이트 테마 변경 |
 | GET/PATCH | `/api/mypage` | 사용자 정보 조회/수정 |
 | GET | `/api/setting/main` | 설정 조회 |
@@ -78,6 +78,12 @@ GEMINI_API_KEY=발급받은_키
 키가 없으면 AI만 비활성화되고 서버는 기존처럼 질문 저장만 합니다.
 
 선택 항목(기본값 있음): `AI_ENABLED`, `AI_CHAT_MODEL`, `AI_EMBEDDING_MODEL`, `AI_TOP_K`, `AI_MIN_SIMILARITY`, `AI_HISTORY_MAX_TURNS`, `AI_CHUNKS_PATH`, `AI_CACHE_PATH`
+
+## 나이스 급식 연동
+
+채팅에서 `오늘 급식`, `내일 점심`, `15일 식단`, `10월 2일 급식`, `2027년 3월 2일 급식`처럼 물으면 나이스 교육정보 개방 포털에서 광주소프트웨어마이스터고등학교 식단을 조회합니다. 날짜가 없으면 서울 기준 오늘, 일만 있으면 현재 연·월, 월·일만 있으면 현재 연도를 사용합니다. 등록된 식단이 없으면 `급식이 등록되지 않았습니다.`라고 답합니다.
+
+`.env`의 `NEIS_API_KEY`는 선택 항목입니다. 비워도 제한된 샘플 호출은 가능하지만, 운영 환경에서는 나이스에서 발급한 인증키를 넣는 것을 권장합니다. 학교 기본값은 광주광역시교육청 `F10`, 광주소프트웨어마이스터고등학교 `7380292`입니다.
 
 ### 요청 횟수 제한
 

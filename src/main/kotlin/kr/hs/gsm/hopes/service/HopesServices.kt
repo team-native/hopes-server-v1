@@ -262,10 +262,10 @@ class ChatService(
         rateLimiter.checkMessage(email)
         val user = users.requireUser(email)
         val conversation = requireConversation(user, id)
-        if (ai.enabled && !ai.isReady()) {
+        val content = request.content.trim()
+        if (ai.enabled && !ai.isReady() && !ai.canReplyWithoutRag(content)) {
             throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI가 아직 준비 중입니다. 잠시 후 다시 시도해주세요")
         }
-        val content = request.content.trim()
         val receivedAt = Instant.now()
         discordQuestionLog.publish(
             DiscordQuestionLogEvent(
@@ -287,7 +287,7 @@ class ChatService(
         }
         // Gemini 호출은 최대 60초까지 걸릴 수 있어 트랜잭션(DB 커넥션) 밖에서 실행한다.
         // 실패하면 여기서 예외가 전파되어 아무것도 저장되지 않으므로 클라이언트는 같은 내용으로 재시도하면 된다.
-        val answer = if (ai.enabled) ai.reply(user, history, content) else null
+        val answer = if (ai.enabled || ai.canReplyWithoutRag(content)) ai.reply(user, history, content) else null
         transactionTemplate.executeWithoutResult {
             messages.save(
                 ChatMessage(

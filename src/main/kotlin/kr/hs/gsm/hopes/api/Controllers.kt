@@ -198,7 +198,7 @@ class MainController(
     @PostMapping("/chats/{id}/messages")
     @Operation(
         summary = "메시지 전송 및 AI 답변 생성",
-        description = "X-Hopes-Client 헤더에 WEB 또는 APP을 전달하면 질문 출처가 정확히 기록됩니다. 헤더가 없으면 User-Agent로 판별하며 판별할 수 없는 경우 UNKNOWN으로 저장합니다.",
+        description = "급식 질문은 서울 시간 기준으로 날짜를 해석해 나이스에서 광주소프트웨어마이스터고 식단을 조회합니다. X-Hopes-Client 헤더에 WEB 또는 APP을 전달하면 질문 출처가 정확히 기록됩니다. 헤더가 없으면 User-Agent로 판별하며 판별할 수 없는 경우 UNKNOWN으로 저장합니다.",
     )
     fun send(
         authentication: Authentication,

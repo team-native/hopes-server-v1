@@ -16,6 +16,7 @@ private val GLOSSARY = ABBREVIATIONS.entries.joinToString(", ") { (abbr, full) -
 class AiChatService(
     private val client: GeminiClient,
     private val rag: RagIndexService,
+    private val meals: NeisMealService,
     @Value("\${hopes.ai.history-max-turns}") private val historyMaxTurns: Int,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -25,6 +26,9 @@ class AiChatService(
 
     fun isReady(): Boolean = rag.ready
 
+    fun canReplyWithoutRag(question: String): Boolean =
+        IDENTITY_QUESTION.containsMatchIn(question.trim()) || meals.isMealQuestion(question)
+
     /**
      * history = 이번 질문을 저장하기 전까지의 대화 내역(후속 질문 맥락용).
      * 실패 시 ApiException(502)을 던진다 — 호출부가 메시지를 저장하기 전에 이 메서드를 호출하므로
@@ -32,6 +36,7 @@ class AiChatService(
      */
     fun reply(user: User, history: List<ChatMessage>, question: String): String {
         if (IDENTITY_QUESTION.containsMatchIn(question.trim())) return HOPES_IDENTITY_RESPONSE
+        meals.replyIfMealQuestion(question)?.let { return it }
         return try {
             val chunks = rag.retrieve(question)
             // 임계값 튜닝용 로그: 질문별 검색 유사도 확인 후 hopes.ai.min-similarity 조정.
