@@ -34,7 +34,7 @@ class NeisMealServiceTest {
     }
 
     @Test
-    fun `식사명을 말하면 해당 식사만 출력한다`() {
+    fun `조식 중식 석식과 아침 점심 저녁을 말하면 해당 식사만 출력한다`() {
         val provider = MealProvider { date ->
             listOf(
                 SchoolMeal(date, "조식", listOf("아침밥"), "500 Kcal"),
@@ -44,14 +44,39 @@ class NeisMealServiceTest {
         }
         val service = NeisMealService(provider, SeoulDateProvider { today })
 
-        val answer = service.replyIfMealQuestion("2026년 4월 1일 점심 급식 알려줘")!!
+        mapOf(
+            "조식" to "조식",
+            "아침" to "조식",
+            "중식" to "중식",
+            "점심" to "중식",
+            "석식" to "석식",
+            "저녁" to "석식",
+        ).forEach { (word, expected) ->
+            val answer = service.replyIfMealQuestion("2026년 4월 1일 $word 급식 알려줘")!!
+            assertTrue(answer.startsWith("2026년 4월 1일 급식이야."), word)
+            assertTrue(answer.contains("[$expected]"), word)
+            assertEquals(1, Regex("\\[(?:조식|중식|석식)]").findAll(answer).count(), word)
+        }
+    }
 
-        assertTrue(answer.startsWith("2026년 4월 1일 급식이야."))
+    @Test
+    fun `식사명을 생략하면 조식 중식 석식을 모두 출력한다`() {
+        val service = NeisMealService(
+            MealProvider { date ->
+                listOf(
+                    SchoolMeal(date, "조식", listOf("아침밥"), null),
+                    SchoolMeal(date, "중식", listOf("점심밥"), null),
+                    SchoolMeal(date, "석식", listOf("저녁밥"), null),
+                )
+            },
+            SeoulDateProvider { today },
+        )
+
+        val answer = service.replyIfMealQuestion("2026년 4월 1일 급식 알려줘")!!
+
+        assertTrue(answer.contains("[조식]"))
         assertTrue(answer.contains("[중식]"))
-        assertTrue(answer.contains("- 점심밥"))
-        assertTrue(answer.contains("- 칼로리: 700 Kcal"))
-        assertFalse(answer.contains("[조식]"))
-        assertFalse(answer.contains("[석식]"))
+        assertTrue(answer.contains("[석식]"))
     }
 
     @Test

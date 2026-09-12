@@ -42,7 +42,7 @@ internal class NeisMealClient(
     @Value("\${hopes.neis.base-url:https://open.neis.go.kr}") baseUrl: String,
     @Value("\${hopes.neis.api-key:}") private val apiKey: String,
     @Value("\${hopes.neis.education-office-code:F10}") private val educationOfficeCode: String,
-    @Value("\${hopes.neis.school-code:7380292}") private val schoolCode: String,
+    @Value("\${hopes.neis.school-code:7140392}") private val schoolCode: String,
     @Value("\${hopes.neis.connect-timeout-ms:3000}") connectTimeoutMs: Long,
     @Value("\${hopes.neis.read-timeout-ms:5000}") readTimeoutMs: Long,
 ) : MealProvider {
