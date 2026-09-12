@@ -108,7 +108,7 @@ class HopesAiIntegrationTest @Autowired constructor(
             content = """{"content":"너 이름이 뭐야?"}"""
         }.andExpect {
             status { isOk() }
-            jsonPath("$.messages[1].content") { value("저는 여러 선배들의 경험을 모아 답하는 Hopes예요.") }
+            jsonPath("$.messages[1].content") { value("나는 여러 선배들의 경험을 모아 답하는 Hopes야.") }
         }
 
         assertTrue(gemini.systemPrompts.isEmpty(), "정체성 질문이 Gemini까지 호출됐습니다")
