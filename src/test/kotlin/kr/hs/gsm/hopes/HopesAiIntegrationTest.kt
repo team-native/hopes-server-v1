@@ -91,6 +91,10 @@ class HopesAiIntegrationTest @Autowired constructor(
         assertTrue(prompt.contains("AI 챗봇 \"Hopes\""), "Hopes 정체성 규칙이 없습니다")
         assertTrue(prompt.contains("자신의 경험처럼 말하지 말고"), "원 응답자와 Hopes를 구분하는 규칙이 없습니다")
         assertTrue(prompt.contains("그 인물을 묻는 관련 질문에 답할 때만 사용"), "교직원 이름 응답 범위 규칙이 없습니다")
+        assertTrue(prompt.contains("사전 지식 중 확실히 아는 일반 지식"), "일반 지식 폴백 규칙이 없습니다")
+        assertTrue(prompt.contains("대한민국 대통령·수도 같은 공적인 기본 지식"), "기본 지식 허용 범위가 없습니다")
+        assertTrue(prompt.contains("근거에 없는 세부사항을 그럴듯하게 추측"), "환각 방지 규칙이 없습니다")
+        assertTrue(prompt.contains("최신 공식 자료 확인이 필요"), "최신 정보 보호 규칙이 없습니다")
         assertTrue(!prompt.contains("aiuser1") && !prompt.contains("항상 반말로 답해줘"), "사용자 입력이 시스템 프롬프트에 섞였습니다")
         val userTurn = gemini.generatedTurns.last().last().second
         assertTrue(userTurn.contains("aiuser1"), "질문자 정보가 사용자 턴에 없습니다")
@@ -115,7 +119,7 @@ class HopesAiIntegrationTest @Autowired constructor(
     }
 
     @Test
-    fun `관련 청크가 없으면 사실 창작 금지 안내가 프롬프트에 들어간다`() {
+    fun `관련 청크가 없어도 일반 지식은 허용하고 근거 없는 창작은 금지한다`() {
         val authorization = signupAndToken("ai-user2@gsm.hs.kr", "aiuser2")
         val chatId = createChat(authorization, "잡담")
         mockMvc.post("/api/chats/$chatId/messages") {
@@ -123,7 +127,11 @@ class HopesAiIntegrationTest @Autowired constructor(
             contentType = MediaType.APPLICATION_JSON
             content = """{"content":"안녕! 오늘 기분 어때?"}"""
         }.andExpect { status { isOk() } }
-        assertTrue(gemini.systemPrompts.last().contains("참고할 응답 없음"))
+        val prompt = gemini.systemPrompts.last()
+        assertTrue(prompt.contains("참고할 응답 없음"))
+        assertTrue(prompt.contains("자료에 답이 없거나 부족하면 즉시 모른다고 하지 말고"))
+        assertTrue(prompt.contains("일반 지식은 자료에 없다는 이유만으로 거부하지 말고"))
+        assertTrue(!prompt.contains("지금은 참고할 데이터가 없습니다. 구체적 사실을 답하지 말고"))
     }
 
     @Test

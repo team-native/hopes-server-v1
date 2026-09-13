@@ -33,8 +33,13 @@ class GeminiClient(
             "contents" to turns.map { (role, text) ->
                 mapOf("role" to role, "parts" to listOf(mapOf("text" to text)))
             },
-            // 낮은 temperature → 창작 억제, 검색된 데이터에 근거한 답변 유도.
-            "generationConfig" to mapOf("temperature" to 0.4, "topP" to 0.9, "maxOutputTokens" to maxOutputTokens),
+            // 낮은 무작위성으로 그럴듯한 세부사항을 덧붙이는 경향을 줄인다.
+            "generationConfig" to mapOf(
+                "temperature" to 0.1,
+                "topP" to 0.8,
+                "topK" to 20,
+                "maxOutputTokens" to maxOutputTokens,
+            ),
         )
         val response = rest.post()
             .uri("/models/{model}:generateContent", chatModel)
