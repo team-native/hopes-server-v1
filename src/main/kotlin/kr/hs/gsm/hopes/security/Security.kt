@@ -89,7 +89,10 @@ class AccessTokenFilter(
 }
 
 @Configuration
-class SecurityConfig(private val tokenFilter: AccessTokenFilter, private val objectMapper: ObjectMapper) {
+class SecurityConfig(
+    private val tokenFilter: AccessTokenFilter,
+    private val objectMapper: ObjectMapper,
+) {
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
@@ -98,7 +101,7 @@ class SecurityConfig(private val tokenFilter: AccessTokenFilter, private val obj
         val config = CorsConfiguration().apply {
             allowedOrigins = origins.split(',').map(String::trim)
             allowedMethods = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")
-            allowedHeaders = listOf("Authorization", "Content-Type")
+            allowedHeaders = listOf("Authorization", "Content-Type", "X-Hopes-Client")
             allowCredentials = true
         }
         return UrlBasedCorsConfigurationSource().also { it.registerCorsConfiguration("/**", config) }
@@ -111,7 +114,15 @@ class SecurityConfig(private val tokenFilter: AccessTokenFilter, private val obj
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .authorizeHttpRequests {
             it.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/signup/**", "/api/login", "/api/password/**", "/actuator/health").permitAll()
+                .requestMatchers(
+                    "/api/signup/**",
+                    "/api/login",
+                    "/api/password/**",
+                    "/actuator/health",
+                    "/v3/api-docs/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                ).permitAll()
                 .anyRequest().authenticated()
         }
         .exceptionHandling {

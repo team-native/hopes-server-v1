@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service
 @Service
 class E5EmbeddingModel(
     @Value("\${hopes.ai.embedding-model-url}") private val modelUrl: String,
+    @Value("\${hopes.ai.embedding-batch-size:4}") private val batchSize: Int,
 ) : EmbeddingModel {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -44,11 +45,15 @@ class E5EmbeddingModel(
 
     override fun embed(texts: List<String>, taskType: String): List<DoubleArray> {
         if (texts.isEmpty()) return emptyList()
+        require(batchSize > 0) { "AI_EMBEDDING_BATCH_SIZE는 1 이상이어야 합니다" }
         val prefix = if (taskType == "RETRIEVAL_QUERY") "query: " else "passage: "
         val inputs = texts.map { prefix + it }
         // Predictor는 스레드 안전하지 않으므로 호출마다 새로 만들어 닫는다.
         modelLazy.value.newPredictor().use { predictor ->
-            return predictor.batchPredict(inputs).map { vec -> DoubleArray(vec.size) { vec[it].toDouble() } }
+            return inputs
+                .chunked(batchSize)
+                .flatMap { batch -> predictor.batchPredict(batch) }
+                .map { vec -> DoubleArray(vec.size) { vec[it].toDouble() } }
         }
     }
 
