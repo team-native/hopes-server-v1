@@ -111,14 +111,7 @@ class NeisMealService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun isMealQuestion(question: String): Boolean {
-        val normalized = question.replace(" ", "")
-        return MEAL_WORD.containsMatchIn(question) ||
-            MEAL_CONTEXT.containsMatchIn(normalized)
-    }
-
-    fun replyIfMealQuestion(question: String): String? {
-        if (!isMealQuestion(question)) return null
+    fun replyForMealLookup(question: String): String {
         val date = try {
             MealDateParser.resolve(question, dateProvider.today())
         } catch (_: IllegalArgumentException) {
@@ -152,8 +145,6 @@ class NeisMealService(
 
     companion object {
         const val NO_MEAL_MESSAGE = "급식이 등록되지 않았습니다."
-        private val MEAL_WORD = Regex("급식|식단")
-        private val MEAL_CONTEXT = Regex("(?:조식|중식|석식|아침|점심|저녁|밥).*(?:메뉴|뭐(?:야|지|임|나와|먹)|알려)")
         private val KOREAN_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy년 M월 d일")
     }
 }

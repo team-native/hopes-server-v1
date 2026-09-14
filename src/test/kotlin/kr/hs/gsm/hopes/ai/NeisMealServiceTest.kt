@@ -52,7 +52,7 @@ class NeisMealServiceTest {
             "석식" to "석식",
             "저녁" to "석식",
         ).forEach { (word, expected) ->
-            val answer = service.replyIfMealQuestion("2026년 4월 1일 $word 급식 알려줘")!!
+            val answer = service.replyForMealLookup("2026년 4월 1일 $word 급식 알려줘")
             assertTrue(answer.startsWith("2026년 4월 1일 급식이야."), word)
             assertTrue(answer.contains("[$expected]"), word)
             assertEquals(1, Regex("\\[(?:조식|중식|석식)]").findAll(answer).count(), word)
@@ -72,7 +72,7 @@ class NeisMealServiceTest {
             SeoulDateProvider { today },
         )
 
-        val answer = service.replyIfMealQuestion("2026년 4월 1일 급식 알려줘")!!
+        val answer = service.replyForMealLookup("2026년 4월 1일 급식 알려줘")
 
         assertTrue(answer.contains("[조식]"))
         assertTrue(answer.contains("[중식]"))
@@ -83,7 +83,7 @@ class NeisMealServiceTest {
     fun `등록된 급식이 없으면 지정 문구만 출력한다`() {
         val service = NeisMealService(MealProvider { emptyList() }, SeoulDateProvider { today })
 
-        assertEquals(NeisMealService.NO_MEAL_MESSAGE, service.replyIfMealQuestion("내일 급식"))
+        assertEquals(NeisMealService.NO_MEAL_MESSAGE, service.replyForMealLookup("내일 급식"))
     }
 
     @Test
@@ -94,7 +94,7 @@ class NeisMealServiceTest {
             SeoulDateProvider { today },
         )
 
-        assertEquals("날짜를 확인해줘.", service.replyIfMealQuestion("2월 30일 급식"))
+        assertEquals("날짜를 확인해줘.", service.replyForMealLookup("2월 30일 급식"))
         assertFalse(called)
     }
 

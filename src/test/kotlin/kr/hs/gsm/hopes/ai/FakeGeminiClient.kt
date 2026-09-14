@@ -7,8 +7,10 @@ package kr.hs.gsm.hopes.ai
 class FakeGeminiClient : GeminiClient("test-key", "test-chat-model") {
     val systemPrompts = mutableListOf<String>()
     val generatedTurns = mutableListOf<List<Pair<String, String>>>()
+    val mealIntentTurns = mutableListOf<List<Pair<String, String>>>()
     var generateError: RuntimeException? = null
     var answer: String = "테스트 답변"
+    var mealIntent: Boolean = false
 
     override val hasKey: Boolean get() = true
 
@@ -17,5 +19,11 @@ class FakeGeminiClient : GeminiClient("test-key", "test-chat-model") {
         systemPrompts += systemPrompt
         generatedTurns += turns
         return answer
+    }
+
+    override fun classifyMealLookup(turns: List<Pair<String, String>>): Boolean {
+        generateError?.let { throw it }
+        mealIntentTurns += turns
+        return mealIntent
     }
 }
