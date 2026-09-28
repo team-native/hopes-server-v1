@@ -1,0 +1,288 @@
+package kr.hs.gsm.hopes
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import kr.hs.gsm.hopes.ai.EmbeddingModel
+import kr.hs.gsm.hopes.ai.FakeEmbeddingModel
+import kr.hs.gsm.hopes.ai.FakeGeminiClient
+import kr.hs.gsm.hopes.ai.MealProvider
+import kr.hs.gsm.hopes.ai.RagIndexService
+import kr.hs.gsm.hopes.ai.SchoolMeal
+import kr.hs.gsm.hopes.domain.EmailVerificationRepository
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Primary
+import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.patch
+import org.springframework.test.web.servlet.post
+import java.time.Instant
+
+/** AI 기능(RAG 검색, 프롬프트 구성, Gemini 오류 처리, 답변 저장)을 가짜 Gemini로 검증한다. */
+@SpringBootTest(
+    properties = [
+        "hopes.mail.enabled=false",
+        "hopes.ai.enabled=true",
+        "hopes.ai.chunks-path=classpath:data/test_rag_chunks.jsonl",
+        "hopes.ai.cache-path=./target/ai-test/embeddings_cache.json",
+        "hopes.rate-limit.messages-per-minute=3",
+        "spring.datasource.url=jdbc:h2:mem:hopes-ai-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+    ]
+)
+@AutoConfigureMockMvc
+class HopesAiIntegrationTest @Autowired constructor(
+    private val mockMvc: MockMvc,
+    private val objectMapper: ObjectMapper,
+    private val verificationRepository: EmailVerificationRepository,
+    private val gemini: FakeGeminiClient,
+    private val rag: RagIndexService,
+) {
+    @TestConfiguration
+    class FakeAiConfig {
+        @Bean
+        @Primary
+        fun fakeGeminiClient(): FakeGeminiClient = FakeGeminiClient()
+
+        @Bean
+        @Primary
+        fun fakeEmbeddingModel(): EmbeddingModel = FakeEmbeddingModel()
+
+        @Bean
+        @Primary
+        fun fakeMealProvider(): MealProvider = MealProvider { date ->
+            listOf(
+                SchoolMeal(date, "조식", listOf("아침밥"), "500 Kcal"),
+                SchoolMeal(date, "중식", listOf("점심밥"), "700 Kcal"),
+                SchoolMeal(date, "석식", listOf("저녁밥"), "800 Kcal"),
+            )
+        }
+    }
+
+    @BeforeEach
+    fun setUp() {
+        // 인덱스는 시작 시 백그라운드 스레드에서 구축되므로 준비될 때까지 기다린다.
+        val deadline = System.currentTimeMillis() + 10_000
+        while (!rag.ready && System.currentTimeMillis() < deadline) Thread.sleep(20)
+        assertTrue(rag.ready, "RAG 인덱스가 준비되지 않았습니다")
+        gemini.generateError = null
+        gemini.systemPrompts.clear()
+        gemini.generatedTurns.clear()
+        gemini.mealIntentTurns.clear()
+        gemini.mealIntent = false
+    }
+
+    @Test
+    fun `RAG 검색 결과와 사용자 정보로 프롬프트를 구성하고 AI 답변을 저장한다`() {
+        val authorization = signupAndToken("ai-user1@gsm.hs.kr", "aiuser1")
+        mockMvc.patch("/api/setting") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"customPrompt":"항상 반말로 답해줘"}"""
+        }.andExpect { status { isOk() } }
+        val chatId = createChat(authorization, "기숙사 질문")
+
+        gemini.answer = "통금은 밤 11시야!"
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"기숙사 통금 알려줘"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages[0].role") { value("USER") }
+            jsonPath("$.messages[1].role") { value("ASSISTANT") }
+            jsonPath("$.messages[1].content") { value("통금은 밤 11시야!") }
+        }
+
+        val prompt = gemini.systemPrompts.last()
+        assertTrue(prompt.contains("기숙사 통금은 밤 11시입니다."), "검색된 청크가 프롬프트에 없습니다")
+        assertTrue(prompt.contains("[최종 우선순위 규칙]"), "시스템 안전 규칙이 없습니다")
+        assertTrue(prompt.contains("AI 챗봇 \"Hopes\""), "Hopes 정체성 규칙이 없습니다")
+        assertTrue(prompt.contains("자신의 경험처럼 말하지 말고"), "원 응답자와 Hopes를 구분하는 규칙이 없습니다")
+        assertTrue(prompt.contains("그 인물을 묻는 관련 질문에 답할 때만 사용"), "교직원 이름 응답 범위 규칙이 없습니다")
+        assertTrue(prompt.contains("사전 지식 중 확실히 아는 일반 지식"), "일반 지식 폴백 규칙이 없습니다")
+        assertTrue(prompt.contains("대한민국 대통령·수도 같은 공적인 기본 지식"), "기본 지식 허용 범위가 없습니다")
+        assertTrue(prompt.contains("근거에 없는 세부사항을 그럴듯하게 추측"), "환각 방지 규칙이 없습니다")
+        assertTrue(prompt.contains("최신 공식 자료 확인이 필요"), "최신 정보 보호 규칙이 없습니다")
+        assertTrue(!prompt.contains("aiuser1") && !prompt.contains("항상 반말로 답해줘"), "사용자 입력이 시스템 프롬프트에 섞였습니다")
+        val userTurn = gemini.generatedTurns.last().last().second
+        assertTrue(userTurn.contains("aiuser1"), "질문자 정보가 사용자 턴에 없습니다")
+        assertTrue(userTurn.contains("항상 반말로 답해줘"), "사용자 설정이 사용자 턴에 없습니다")
+    }
+
+    @Test
+    fun `정체를 물으면 Gemini를 호출하지 않고 Hopes라고 답한다`() {
+        val authorization = signupAndToken("ai-user7@gsm.hs.kr", "aiuser7")
+        val chatId = createChat(authorization, "정체성 확인")
+
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"너 이름이 뭐야?"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages[1].content") { value("나는 여러 선배들의 경험을 모아 답하는 Hopes야.") }
+        }
+
+        assertTrue(gemini.systemPrompts.isEmpty(), "정체성 질문이 Gemini까지 호출됐습니다")
+        assertTrue(gemini.mealIntentTurns.isEmpty(), "정체성 질문이 급식 의도 판별까지 호출됐습니다")
+    }
+
+    @Test
+    fun `AI가 실제 식단 조회 의도만 나이스로 보낸다`() {
+        val authorization = signupAndToken("ai-user8@gsm.hs.kr", "aiuser8")
+        val chatId = createChat(authorization, "급식 의도 판별")
+
+        gemini.mealIntent = false
+        gemini.answer = "급식 맛은 사람마다 다르게 느낄 수 있어."
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"우리 학교 급식은 맛있어?"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages[1].content") { value("급식 맛은 사람마다 다르게 느낄 수 있어.") }
+        }
+
+        gemini.mealIntent = true
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"2026년 9월 14일 메뉴 보여줘"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages[3].content") { value(org.hamcrest.Matchers.containsString("2026년 9월 14일 급식이야.")) }
+            jsonPath("$.messages[3].content") { value(org.hamcrest.Matchers.containsString("[조식]")) }
+            jsonPath("$.messages[3].content") { value(org.hamcrest.Matchers.containsString("[중식]")) }
+            jsonPath("$.messages[3].content") { value(org.hamcrest.Matchers.containsString("[석식]")) }
+        }
+
+        assertTrue(gemini.mealIntentTurns.size == 2, "각 질문의 급식 조회 의도를 AI가 판별해야 합니다")
+        assertTrue(
+            gemini.mealIntentTurns.last().first().second.contains("우리 학교 급식은 맛있어?"),
+            "후속 질문 판별에 이전 대화가 포함되어야 합니다",
+        )
+    }
+
+    @Test
+    fun `관련 청크가 없어도 일반 지식은 허용하고 근거 없는 창작은 금지한다`() {
+        val authorization = signupAndToken("ai-user2@gsm.hs.kr", "aiuser2")
+        val chatId = createChat(authorization, "잡담")
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"안녕! 오늘 기분 어때?"}"""
+        }.andExpect { status { isOk() } }
+        val prompt = gemini.systemPrompts.last()
+        assertTrue(prompt.contains("참고할 응답 없음"))
+        assertTrue(prompt.contains("자료에 답이 없거나 부족하면 즉시 모른다고 하지 말고"))
+        assertTrue(prompt.contains("일반 지식은 자료에 없다는 이유만으로 거부하지 말고"))
+        assertTrue(!prompt.contains("지금은 참고할 데이터가 없습니다. 구체적 사실을 답하지 말고"))
+    }
+
+    @Test
+    fun `Gemini 오류 시 502를 반환하고 사용자 메시지도 저장하지 않는다`() {
+        val authorization = signupAndToken("ai-user3@gsm.hs.kr", "aiuser3")
+        val chatId = createChat(authorization, "오류 테스트")
+
+        gemini.generateError = IllegalStateException("Gemini 장애 (테스트)")
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"기숙사 통금 알려줘"}"""
+        }.andExpect { status { isBadGateway() } }
+
+        // 실패한 질문은 저장되지 않아야 같은 내용으로 그대로 재시도할 수 있다.
+        mockMvc.get("/api/chats/$chatId") {
+            header("Authorization", authorization)
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages.length()") { value(0) }
+        }
+
+        gemini.generateError = null
+        gemini.answer = "재시도 성공 답변"
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"기숙사 통금 알려줘"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages[1].content") { value("재시도 성공 답변") }
+        }
+    }
+
+    @Test
+    fun `12000자를 넘는 질문은 Gemini 호출 없이 400으로 거절한다`() {
+        val authorization = signupAndToken("ai-user5@gsm.hs.kr", "aiuser5")
+        val chatId = createChat(authorization, "길이 제한")
+
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"${"a".repeat(12001)}"}"""
+        }.andExpect { status { isBadRequest() } }
+
+        assertTrue(gemini.systemPrompts.isEmpty(), "검증에서 걸러진 질문이 Gemini까지 호출됐습니다")
+        mockMvc.get("/api/chats/$chatId") {
+            header("Authorization", authorization)
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.messages.length()") { value(0) }
+        }
+    }
+
+    @Test
+    fun `분당 요청 제한을 넘으면 429를 반환한다`() {
+        val authorization = signupAndToken("ai-user6@gsm.hs.kr", "aiuser6")
+        val chatId = createChat(authorization, "속도 제한")
+
+        // 분 경계에 걸려 카운터가 리셋되면 결과가 흔들리므로 다음 분까지 기다린다.
+        val second = Instant.now().epochSecond % 60
+        if (second >= 55) Thread.sleep((61 - second) * 1000)
+
+        repeat(3) {
+            mockMvc.post("/api/chats/$chatId/messages") {
+                header("Authorization", authorization)
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"content":"안녕 $it"}"""
+            }.andExpect { status { isOk() } }
+        }
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"안녕 4"}"""
+        }.andExpect { status { isTooManyRequests() } }
+    }
+
+    private fun signupAndToken(email: String, username: String): String {
+        mockMvc.post("/api/signup/email-verifications") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"email":"$email"}"""
+        }.andExpect { status { isAccepted() } }
+        val code = verificationRepository.findById(email).orElseThrow().code
+        val result = mockMvc.post("/api/signup") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{
+              "email":"$email", "username":"$username", "password":"password1",
+              "passwordConfirm":"password1", "verificationCode":"$code",
+              "gender":"NONE", "major":"software", "cohort":10
+            }"""
+        }.andExpect { status { isCreated() } }.andReturn()
+        return "Bearer " + objectMapper.readTree(result.response.contentAsString)["accessToken"].asText()
+    }
+
+    private fun createChat(authorization: String, title: String): Long {
+        val result = mockMvc.post("/api/chats") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"title":"$title"}"""
+        }.andExpect { status { isCreated() } }.andReturn()
+        return objectMapper.readTree(result.response.contentAsString)["id"].asLong()
+    }
+}

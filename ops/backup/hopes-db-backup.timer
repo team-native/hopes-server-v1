@@ -1,0 +1,11 @@
+[Unit]
+Description=Hopes MySQL daily backup timer
+
+[Timer]
+OnCalendar=*-*-* 18:30:00 UTC
+RandomizedDelaySec=5m
+Persistent=true
+Unit=hopes-db-backup.service
+
+[Install]
+WantedBy=timers.target

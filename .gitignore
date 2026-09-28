@@ -1,0 +1,8 @@
+target/
+.idea/
+*.iml
+.env
+*.log
+/data/
+db-backup-recovery-private.pem
+.tmp-hopes-backup-*
