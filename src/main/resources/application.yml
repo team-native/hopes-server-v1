@@ -62,6 +62,14 @@ hopes:
     policy-version: ${RECOMMENDATION_POLICY_VERSION:1}
   ai:
     enabled: ${AI_ENABLED:true}
+    provider: ${AI_PROVIDER:openai}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat-model: ${OPENAI_CHAT_MODEL:}
+      classification-model: ${OPENAI_CLASSIFICATION_MODEL:}
+      classification-max-output-tokens: ${OPENAI_CLASSIFICATION_MAX_OUTPUT_TOKENS:256}
+      connect-timeout-ms: ${OPENAI_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${OPENAI_READ_TIMEOUT_MS:60000}
     gemini-api-key: ${GEMINI_API_KEY:}
     chat-model: ${AI_CHAT_MODEL:gemini-3.1-flash-lite}
     # 임베딩은 로컬(DJL + PyTorch). embedding-model은 캐시 태그(모델 바뀌면 재임베딩), url은 DJL 모델 위치.

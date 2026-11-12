@@ -7,18 +7,18 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import java.util.Base64
-
-class AiAttachment(val mimeType: String, val bytes: ByteArray, val label: String = "이번 질문의 첨부파일")
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 
 /** Google Generative Language REST API 호출 담당 (답변 생성). 임베딩은 [EmbeddingModel]이 로컬에서 처리. */
 @Service
+@ConditionalOnProperty(name = ["hopes.ai.provider"], havingValue = "gemini")
 class GeminiClient(
     @Value("\${hopes.ai.gemini-api-key}") private val apiKey: String,
     @Value("\${hopes.ai.chat-model}") private val chatModel: String,
     // 답변은 저장 시 12000자로 잘리므로 그보다 길게 생성하면 비용·대기시간만 낭비된다. 생성 단계에서 상한.
     @Value("\${hopes.ai.max-output-tokens:2048}") private val maxOutputTokens: Int = 2048,
-) {
-    val hasKey: Boolean get() = apiKey.isNotBlank()
+) : AiClient {
+    override val hasKey: Boolean get() = apiKey.isNotBlank()
 
     private val rest: RestClient = RestClient.builder()
         .baseUrl("https://generativelanguage.googleapis.com/v1beta")
@@ -30,14 +30,14 @@ class GeminiClient(
         .build()
 
     /** 시스템 프롬프트 + 대화 턴(role: "user"|"model", text)으로 답변 텍스트를 생성한다. */
-    fun generate(systemPrompt: String, turns: List<Pair<String, String>>): String =
+    override fun generate(systemPrompt: String, turns: List<Pair<String, String>>): String =
         generateText(systemPrompt, turns, temperature = 0.1, topP = 0.8, topK = 20, outputTokens = maxOutputTokens)
 
-    fun generateWithAttachments(systemPrompt: String, turns: List<Pair<String, String>>, attachments: List<AiAttachment>): String =
+    override fun generateWithAttachments(systemPrompt: String, turns: List<Pair<String, String>>, attachments: List<AiAttachment>): String =
         generateText(systemPrompt, turns, temperature = 0.1, topP = 0.8, topK = 20, outputTokens = maxOutputTokens, attachments = attachments)
 
     /** 최근 대화와 현재 질문을 보고 나이스 급식 조회가 필요한지 AI가 판별한다. */
-    fun classifyMealLookup(turns: List<Pair<String, String>>): Boolean {
+    override fun classifyMealLookup(turns: List<Pair<String, String>>): Boolean {
         val result = generateText(
             MEAL_INTENT_SYSTEM_PROMPT,
             turns,

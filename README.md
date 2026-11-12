@@ -57,27 +57,45 @@ mvn spring-boot:run
 로그인 이후 API에는 `Authorization: Bearer {accessToken}` 헤더가 필요합니다.
 로그아웃하거나 비밀번호를 변경하면 해당 사용자에게 기존에 발급한 토큰은 즉시 무효화됩니다.
 
-## AI (RAG + Gemini)
+## AI (로컬 RAG + OpenAI)
 
-`POST /api/chats/{id}/messages`가 이제 사용자 질문 저장 후 AI 답변까지 생성해 저장하고, 두 메시지가 포함된 대화 전체를 반환합니다.
+답변 생성의 기본 공급자는 OpenAI Responses API다. RAG 임베딩은 기존 로컬 E5/DJL을 그대로 사용하며 OpenAI 임베딩으로 변경하지 않았다. 기존 SendMessageRequest/ChatResponse와 급식 조회 흐름도 유지한다.
 
-동작 방식 (프로토타입 `hopes/backend` 구조 이식):
-
-1. 서버 시작 시 `src/main/resources/data/gsm_guide_rag_chunks.jsonl`(선배 설문 126개 청크)을 `gemini-embedding-001`로 임베딩해 메모리 인덱스 구축. 결과는 `./data/embeddings_cache.json`에 캐시되어 재시작 시 API 호출 없이 재사용.
-2. 질문마다: 약어 확장(기자위→기숙사자치위원회 등) → 질문 임베딩 → 코사인 유사도 상위 3개 청크 검색(임계값 미달 시 0개) → "GSM 선배" 페르소나 + 검색 청크 + 최근 대화 20턴 + 사용자 정보/커스텀 프롬프트로 `gemini-3.1-flash-lite` 호출.
-3. 검색 결과가 없으면 프롬프트가 사실 창작을 금지하고 "모른다"고 답하게 유도.
+1. 서버가 로컬 E5로 JSONL 안내 자료를 임베딩하고 캐시를 관리한다.
+2. 텍스트 질문은 최근 대화로 급식 조회 의도를 분류한 뒤, 해당하면 나이스 식단을 사용한다. 다른 질문은 RAG 검색 결과·대화·채팅 맥락을 답변 모델에 전달한다.
+3. 이미지/PDF는 검증된 바이트를 input_image/input_file의 Base64 data URI로 전달한다. 원본 저장소를 공개하거나 OpenAI Files에 영구 업로드하지 않는다.
+4. 원시 Responses 응답의 output 메시지에서 output_text를 읽고 Markdown을 보존한다. 불완전·실패·거부·빈 답변은 성공으로 저장하지 않는다. store=false를 요청한다. 이는 응답 저장 옵션이며 공급자의 별도 데이터 보관 정책을 대체하지 않는다.
 
 ### 설정
 
-`.env`에 [Google AI Studio](https://aistudio.google.com/apikey)에서 발급한 키를 넣습니다.
+키 입력과 실제 호출은 아직 보류된 상태다. 아래에는 변수 이름만 적으며 실제 키를 저장소에 넣지 않는다. 모델은 계정에서 Responses API·이미지·PDF 입력 지원을 확인한 뒤 지정한다. 모델을 임의로 확정하거나 최신 모델로 자동 변경하지 않는다.
 
 ```properties
-GEMINI_API_KEY=발급받은_키
+AI_PROVIDER=openai
+OPENAI_API_KEY=
+OPENAI_CHAT_MODEL=
 ```
 
-키가 없으면 AI만 비활성화되고 서버는 기존처럼 질문 저장만 합니다.
+키와 답변 모델이 모두 있어야 OpenAI 기능이 활성화된다. 비어 있으면 외부 OpenAI 호출과 RAG 시작을 생략한다. 기존 비활성 모드에서는 일반 텍스트 질문만 저장되고 AI 답변은 생성되지 않으며, 첨부 분석은 503이다. 이 상태를 AI 정상 연동으로 간주하지 않는다. 모델을 지정할 때는 reasoning 토큰을 포함한 출력 한도도 확인한다.
 
-선택 항목(기본값 있음): `AI_ENABLED`, `AI_CHAT_MODEL`, `AI_EMBEDDING_MODEL`, `AI_TOP_K`, `AI_MIN_SIMILARITY`, `AI_HISTORY_MAX_TURNS`, `AI_CHUNKS_PATH`, `AI_CACHE_PATH`
+| 환경 변수 | 기본값·설명 |
+|---|---|
+| AI_PROVIDER | openai. Gemini 유지가 필요하면 gemini를 명시하며 자동 fallback은 없음 |
+| OPENAI_API_KEY | 빈 값. 실제 키 연결 보류 |
+| OPENAI_CHAT_MODEL | 빈 값. Responses·이미지·PDF 지원 모델을 확인 후 지정 |
+| OPENAI_CLASSIFICATION_MODEL | 빈 값이면 답변 모델 재사용. 필요하면 별도 분류 모델 지정 |
+| OPENAI_CLASSIFICATION_MAX_OUTPUT_TOKENS | 256. 최소 16 |
+| OPENAI_CONNECT_TIMEOUT_MS | 5000 |
+| OPENAI_READ_TIMEOUT_MS | 60000 |
+| AI_MAX_OUTPUT_TOKENS | 기존값 640. 최소16. 모델의 reasoning·출력 요구에 맞게 조정 |
+
+기존 Gemini Client는 AI_PROVIDER=gemini를 명시하는 경우에만 선택된다. 그 경우에만 GEMINI_API_KEY와 AI_CHAT_MODEL을 사용한다. OpenAI 설정이 없다고 Gemini 키를 대신 사용하지 않는다.
+
+### 검증
+
+OpenAiClientTest는 MockRestServiceServer로 실제 직렬화된 HTTP 헤더·본문·이미지/PDF data URI·대화 role을 검증한다. 공급자 429, 전송 오류, 불완전·거부·빈 응답, 미설정 시 무호출도 검증한다. 실제 API 키나 외부 네트워크를 쓰지 않는다. 기존 AI 통합 테스트는 Fake Client를 사용한다.
+
+공식 계약: [Responses 생성](https://developers.openai.com/api/reference/resources/responses/methods/create), [파일 입력](https://developers.openai.com/api/docs/guides/file-inputs), [이미지 입력](https://developers.openai.com/api/docs/guides/images-vision).
 
 ## 나이스 급식 연동
 
@@ -94,6 +112,6 @@ GEMINI_API_KEY=발급받은_키
 ### 운영 메모
 
 - 인덱스 구축 완료 전 질문은 `503 AI가 아직 준비 중입니다` (시작 후 수 초 이내).
-- Gemini 호출 실패 시 `502` 반환 — 트랜잭션 롤백으로 사용자 질문도 저장되지 않으므로 같은 내용으로 재시도하면 됩니다.
+- 외부 AI 호출 실패 시 `502` 반환 — 트랜잭션 롤백으로 사용자 질문도 저장되지 않으므로 같은 내용으로 재시도하면 됩니다.
 - `AI_MIN_SIMILARITY`(기본 0.55)는 로그의 `[ai] "질문" → sims:` 값을 보고 조정하세요. 임베딩 모델이 프로토타입(로컬 e5)과 달라져 임계값도 다시 잡은 것입니다.
 - 답변 생성은 동기 방식입니다(응답까지 수 초). 스트리밍이 필요하면 SSE 엔드포인트 추가가 별도 작업으로 필요합니다.

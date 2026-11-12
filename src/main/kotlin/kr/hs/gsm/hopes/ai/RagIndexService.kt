@@ -34,7 +34,7 @@ data class RetrievedChunk(
  */
 @Service
 final class RagIndexService(
-    private val client: GeminiClient,
+    private val client: AiClient,
     private val embeddingModel: EmbeddingModel,
     private val objectMapper: ObjectMapper,
     private val resourceLoader: ResourceLoader,
@@ -77,7 +77,7 @@ final class RagIndexService(
             return
         }
         if (!client.hasKey) {
-            log.warn("[ai] GEMINI_API_KEY가 설정되지 않아 AI 기능이 비활성화됩니다")
+            log.warn("[ai] AI 공급자의 키 또는 모델이 설정되지 않아 AI 기능이 비활성화됩니다")
             return
         }
         // 시작을 막지 않도록 별도 스레드에서 인덱스 구축. 완료 전 질문은 503 응답.

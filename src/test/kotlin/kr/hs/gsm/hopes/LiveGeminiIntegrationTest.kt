@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest
 @EnabledIfEnvironmentVariable(named = "LIVE_GEMINI_TEST", matches = "true")
 @SpringBootTest(
     properties = [
+        "hopes.ai.provider=gemini",
         "hopes.ai.enabled=false",
         "hopes.mail.enabled=false",
         "hopes.rate-limit.messages-per-minute=0",

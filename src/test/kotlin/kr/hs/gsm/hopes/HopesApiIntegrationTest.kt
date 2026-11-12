@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.post
     properties = [
         "hopes.mail.enabled=false",
         "hopes.ai.enabled=false",
+        "hopes.ai.provider=openai",
         "spring.datasource.url=jdbc:h2:mem:hopes-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     ]
 )
@@ -34,7 +35,12 @@ class HopesApiIntegrationTest @Autowired constructor(
     private val userRepository: UserRepository,
     private val conversationRepository: ConversationRepository,
     private val messageRepository: ChatMessageRepository,
+    private val aiClient: kr.hs.gsm.hopes.ai.AiClient,
 ) {
+    @Test
+    fun `default answer provider is OpenAI without enabling external requests`() {
+        org.junit.jupiter.api.Assertions.assertTrue(aiClient is kr.hs.gsm.hopes.ai.OpenAiClient)
+    }
     @Test
     fun `swagger exposes every API and bearer authentication`() {
         val result = mockMvc.get("/v3/api-docs")

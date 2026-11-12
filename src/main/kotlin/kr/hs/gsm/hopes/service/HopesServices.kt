@@ -293,7 +293,7 @@ class ChatService(
             )
         )
 
-        // 전체 대화를 메모리에 올리지 않고 Gemini에 전달할 최근 내역만 조회한다.
+        // 전체 대화를 메모리에 올리지 않고 AI Client에 전달할 최근 내역만 조회한다.
         val history = if (ai.enabled && ai.historyLimit > 0) {
             messages.findAllByConversationIdOrderByCreatedAtDescIdDesc(
                 conversation.id!!,
@@ -302,7 +302,7 @@ class ChatService(
         } else {
             emptyList()
         }
-        // Gemini 호출은 최대 60초까지 걸릴 수 있어 트랜잭션(DB 커넥션) 밖에서 실행한다.
+        // 외부 AI 호출은 최대 60초까지 걸릴 수 있어 트랜잭션(DB 커넥션) 밖에서 실행한다.
         // 실패하면 여기서 예외가 전파되어 아무것도 저장되지 않으므로 클라이언트는 같은 내용으로 재시도하면 된다.
         val media = attachments.historyMedia(history.map { it.id!! }, prepared)
         val answer = if (ai.enabled || ai.canReplyWithoutRag(content)) ai.reply(user, history, content, context, media) else null

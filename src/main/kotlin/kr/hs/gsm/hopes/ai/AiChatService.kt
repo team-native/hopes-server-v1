@@ -11,10 +11,10 @@ import org.springframework.stereotype.Service
 
 private val GLOSSARY = ABBREVIATIONS.entries.joinToString(", ") { (abbr, full) -> "$abbr = $full" }
 
-/** 검색(RAG) + 프롬프트 구성 + Gemini 호출을 묶어 최종 답변을 만든다. */
+/** 검색(RAG) + 프롬프트 구성 + 외부 AI 호출을 묶어 최종 답변을 만든다. */
 @Service
 class AiChatService(
-    private val client: GeminiClient,
+    private val client: AiClient,
     private val rag: RagIndexService,
     private val meals: NeisMealService,
     @Value("\${hopes.ai.history-max-turns}") private val historyMaxTurns: Int,

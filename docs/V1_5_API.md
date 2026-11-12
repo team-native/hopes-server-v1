@@ -6,7 +6,7 @@
 
 | 기능 | 서버 구현 | 앱에서 해야 하는 작업 |
 |---|---|---|
-| 이미지·PDF | 검증, 비공개 파일 저장, 메타데이터/열람/미전송 삭제, 채팅 원자 연결, Gemini inline data 전달, 이전 첨부 재조회 | 카메라/사진/파일 선택, 미리보기, 업로드·분석 진행과 재시도 UI |
+| 이미지·PDF | 검증, 비공개 파일 저장, 메타데이터/열람/미전송 삭제, 채팅 원자 연결, OpenAI Responses 입력 전달, 이전 첨부 재조회 | 카메라/사진/파일 선택, 미리보기, 업로드·분석 진행과 재시도 UI |
 | 학과·전공 | 활성 카탈로그, 독립 선택과 null 해제, 사용자별 서버 저장, 질문 맥락 반영 | 독립 선택 컨트롤, 비활성 선택 재선택 안내 |
 | 질문 추천 | 기본/학과/전공/조합, 갱신 토큰·제외 ID, 기본 목록 대체, 명시적 동의에 따른 최근 질문 기반 템플릿 순위 | 추천 선택은 입력창만 채우고 자동 전송하지 않기 |
 | Markdown | 원문 보존, contentFormat, 문단·목록·코드 형식 프롬프트 | 안전한 Markdown 렌더러, 코드 가로 스크롤·복사, 라이트/다크, HTML 실행 금지·링크 scheme 검증 |
@@ -36,7 +36,7 @@ GPS로 층·교실을 확정하지 않는다. QR/비콘, 실내 자동 추적, �
 
 텍스트는 필수다. 첨부만 전송은 아직 허용하지 않는다. AI 호출 성공 후 사용자 메시지·첨부 연결·답변을 한 트랜잭션에서 저장한다. 실패 시 연결하지 않아 재시도할 수 있다. 동일 대화의 같은 재시도 키와 같은 요청은 기존 결과를 반환하며 다른 본문은 409다. 경쟁 요청의 중복 키/첨부 연결 충돌도 409이며 재시도 후 기존 결과를 조회할 수 있다. AI 응답이 없는 비활성 모드에서 첨부 분석을 성공 처리하지 않는다(503). 동기 API이므로 요청 중 상태는 앱이 표시하고 저장 완료 응답의 analysisStatus는 COMPLETED다. 별도 비동기 작업 API는 없다.
 
-질문 응답과 `GET /api/chats/{id}`에 attachments, analysisStatus, contentFormat이 추가된다. 첨부 만료 후에는 메타데이터가 EXPIRED이고 previewUrl은 null이다. 현재 요청과 최근 대화 첨부를 합쳐 설정된 개수·전체 용량 안에서 Gemini에 전달한다. 오래되거나 만료된 파일은 후속 분석에서 제외될 수 있다. AI 답변은 MARKDOWN, 사용자 질문은 PLAIN_TEXT다. 링크 URL은 공개 URL이 아니므로 앱이 인증 헤더로 파일을 가져와야 한다.
+질문 응답과 `GET /api/chats/{id}`에 attachments, analysisStatus, contentFormat이 추가된다. 첨부 만료 후에는 메타데이터가 EXPIRED이고 previewUrl은 null이다. 현재 요청과 최근 대화 첨부를 합쳐 설정된 개수·전체 용량 안에서 OpenAI에 전달한다. 오래되거나 만료된 파일은 후속 분석에서 제외될 수 있다. AI 답변은 MARKDOWN, 사용자 질문은 PLAIN_TEXT다. 링크 URL은 공개 URL이 아니므로 앱이 인증 헤더로 파일을 가져와야 한다.
 
 ## 커뮤니티
 
@@ -88,4 +88,8 @@ buildings: [{ id, name, latitude, longitude, publicationApproved, floorPlans: [
 
 ## 검증 범위
 
-`mvn test` / `mvn package`. H2에서 실제 Flyway 마이그레이션과 JPA schema validate, MockMvc HTTP 계약·소유권·익명성·재시도·동시 좋아요, PNG/PDF 파일 검증, 가짜 Gemini로 바이너리 전달/실패 처리를 검증한다. 실제 Gemini 호출은 별도 키가 있어야 하며 자동 테스트에서는 실행하지 않는다. 앱 UI와 운영 MySQL·GSMSV 배포 확인은 별도다.
+`mvn test` / `mvn package`. H2에서 실제 Flyway 마이그레이션과 JPA schema validate, MockMvc HTTP 계약·소유권·익명성·재시도·동시 좋아요, PNG/PDF 파일 검증, Fake AI Client로 바이너리 전달/실패 처리를 검증한다. 실제 OpenAI 호출과 키 연결은 보류 상태이며 자동 테스트에서는 모의 HTTP 서버로 계약만 검증한다. 앱 UI와 운영 MySQL·GSMSV 배포 확인은 별도다.
+
+## OpenAI 전환 상태
+
+기본 공급자는 openai다. OPENAI_API_KEY와 OPENAI_CHAT_MODEL은 비어 있으며 실제 연결·모델 선택·배포 활성화는 보류다. README의 설정 표와 모의 HTTP 검증 범위를 참고한다. 로컬 E5 임베딩·급식·기존 앱 DTO는 유지한다.
