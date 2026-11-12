@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: ${ATTACHMENT_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${ATTACHMENT_MULTIPART_MAX_REQUEST_SIZE:11MB}
   config:
     import: optional:file:.env[.properties]
   application:
@@ -42,6 +46,20 @@ springdoc:
     path: /v3/api-docs
 
 hopes:
+  attachments:
+    directory: ${ATTACHMENT_DIRECTORY:./data/attachments}
+    max-file-bytes: ${ATTACHMENT_MAX_FILE_BYTES:5242880}
+    max-count: ${ATTACHMENT_MAX_COUNT:3}
+    max-total-bytes: ${ATTACHMENT_MAX_TOTAL_BYTES:12582912}
+    max-pdf-pages: ${ATTACHMENT_MAX_PDF_PAGES:50}
+    retention-hours: ${ATTACHMENT_RETENTION_HOURS:720}
+    user-quota-bytes: ${ATTACHMENT_USER_QUOTA_BYTES:104857600}
+  campus:
+    data-path: ${CAMPUS_DATA_PATH:}
+    max-accuracy-meters: ${CAMPUS_MAX_ACCURACY_METERS:100}
+    max-age-seconds: ${CAMPUS_MAX_AGE_SECONDS:120}
+  recommendations:
+    policy-version: ${RECOMMENDATION_POLICY_VERSION:1}
   ai:
     enabled: ${AI_ENABLED:true}
     gemini-api-key: ${GEMINI_API_KEY:}

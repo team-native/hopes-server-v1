@@ -70,6 +70,10 @@ class ChatMessage(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     var clientPlatform: ClientPlatform = ClientPlatform.UNKNOWN,
+    @Column(length = 100)
+    var clientRequestId: String? = null,
+    @Column(length = 64)
+    var requestDigest: String? = null,
     @Column(nullable = false)
     var createdAt: Instant = Instant.now(),
 )

@@ -82,13 +82,21 @@ data class SettingUpdateRequest(
 data class CreateChatRequest(@field:Size(max = CHAT_TITLE_MAX_LENGTH) val title: String? = null)
 data class SendMessageRequest(
     @field:NotBlank @field:Size(max = MESSAGE_MAX_LENGTH, message = "질문은 12,000자 이하여야 합니다") val content: String,
+    @field:Size(max = 20) val attachmentIds: List<Long> = emptyList(),
+    val departmentId: Long? = null,
+    val specialtyId: Long? = null,
+    @field:Size(min = 1, max = 100) val clientRequestId: String? = null,
 )
 data class InquiryRequest(@field:NotBlank @field:Size(max = CUSTOM_PROMPT_MAX_LENGTH) val content: String)
 
 data class TokenResponse(val accessToken: String, val tokenType: String = "Bearer")
 data class UserResponse(val username: String, val email: String, val nickname: String, val profileInfo: String, val profileImage: String?, val gender: String?, val major: String?, val cohort: Int?)
 data class ChatSummary(val id: Long, val title: String, val updatedAt: Instant)
-data class MessageResponse(val id: Long, val role: MessageRole, val content: String, val createdAt: Instant)
+data class MessageResponse(
+    val id: Long, val role: MessageRole, val content: String, val createdAt: Instant,
+    val attachments: List<kr.hs.gsm.hopes.feature.AttachmentDto> = emptyList(),
+    val analysisStatus: String? = null,
+)
 data class ChatResponse(
     val id: Long,
     val title: String,

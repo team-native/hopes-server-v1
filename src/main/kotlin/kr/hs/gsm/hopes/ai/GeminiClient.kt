@@ -6,6 +6,9 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
+import java.util.Base64
+
+class AiAttachment(val mimeType: String, val bytes: ByteArray, val label: String = "이번 질문의 첨부파일")
 
 /** Google Generative Language REST API 호출 담당 (답변 생성). 임베딩은 [EmbeddingModel]이 로컬에서 처리. */
 @Service
@@ -29,6 +32,9 @@ class GeminiClient(
     /** 시스템 프롬프트 + 대화 턴(role: "user"|"model", text)으로 답변 텍스트를 생성한다. */
     fun generate(systemPrompt: String, turns: List<Pair<String, String>>): String =
         generateText(systemPrompt, turns, temperature = 0.1, topP = 0.8, topK = 20, outputTokens = maxOutputTokens)
+
+    fun generateWithAttachments(systemPrompt: String, turns: List<Pair<String, String>>, attachments: List<AiAttachment>): String =
+        generateText(systemPrompt, turns, temperature = 0.1, topP = 0.8, topK = 20, outputTokens = maxOutputTokens, attachments = attachments)
 
     /** 최근 대화와 현재 질문을 보고 나이스 급식 조회가 필요한지 AI가 판별한다. */
     fun classifyMealLookup(turns: List<Pair<String, String>>): Boolean {
@@ -54,11 +60,17 @@ class GeminiClient(
         topP: Double,
         topK: Int,
         outputTokens: Int,
+        attachments: List<AiAttachment> = emptyList(),
     ): String {
         val body = mapOf(
             "systemInstruction" to mapOf("parts" to listOf(mapOf("text" to systemPrompt))),
-            "contents" to turns.map { (role, text) ->
-                mapOf("role" to role, "parts" to listOf(mapOf("text" to text)))
+            "contents" to turns.mapIndexed { index, (role, text) ->
+                val parts = mutableListOf<Map<String, Any>>(mapOf("text" to text))
+                if (index == turns.lastIndex && role == "user") attachments.forEach {
+                    parts += mapOf("text" to it.label)
+                    parts += mapOf("inline_data" to mapOf("mime_type" to it.mimeType, "data" to Base64.getEncoder().encodeToString(it.bytes)))
+                }
+                mapOf("role" to role, "parts" to parts)
             },
             // 낮은 무작위성으로 그럴듯한 세부사항을 덧붙이는 경향을 줄인다.
             "generationConfig" to mapOf(

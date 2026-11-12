@@ -15,6 +15,9 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.security.SecureRandom
 import java.time.Instant
 import java.util.Locale
+import kr.hs.gsm.hopes.feature.AttachmentService
+import kr.hs.gsm.hopes.feature.CatalogService
+import java.security.MessageDigest
 
 @Service
 class VerificationService(
@@ -226,6 +229,8 @@ class ChatService(
     private val transactionTemplate: TransactionTemplate,
     private val rateLimiter: RateLimiter,
     private val discordQuestionLog: DiscordQuestionLogService,
+    private val attachments: AttachmentService,
+    private val catalogs: CatalogService,
 ) {
     fun main(email: String, keyword: String?, page: Int, size: Int): MainResponse {
         val user = users.requireUser(email)
@@ -263,7 +268,19 @@ class ChatService(
         val user = users.requireUser(email)
         val conversation = requireConversation(user, id)
         val content = request.content.trim()
-        if (ai.enabled && !ai.isReady() && !ai.canReplyWithoutRag(content)) {
+        val context = catalogs.context(request.departmentId, request.specialtyId)
+        val digest = MessageDigest.getInstance("SHA-256").digest(
+            listOf(content, request.attachmentIds.joinToString(","), request.departmentId, request.specialtyId).joinToString("\u0000").toByteArray()
+        ).joinToString("") { "%02x".format(it) }
+        request.clientRequestId?.let { key ->
+            messages.findByConversationIdAndClientRequestId(id, key)?.let { existing ->
+                if (existing.requestDigest != digest) throw ApiException(HttpStatus.CONFLICT, "재시도 키가 다른 요청에 사용되었습니다")
+                return detail(conversation)
+            }
+        }
+        val prepared = attachments.prepare(user.id!!, request.attachmentIds)
+        if (prepared.rows.isNotEmpty() && !ai.enabled) throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "첨부파일 AI 분석이 비활성화되어 있습니다")
+        if (prepared.rows.isEmpty() && ai.enabled && !ai.isReady() && !ai.canReplyWithoutRag(content)) {
             throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI가 아직 준비 중입니다. 잠시 후 다시 시도해주세요")
         }
         val receivedAt = Instant.now()
@@ -287,17 +304,21 @@ class ChatService(
         }
         // Gemini 호출은 최대 60초까지 걸릴 수 있어 트랜잭션(DB 커넥션) 밖에서 실행한다.
         // 실패하면 여기서 예외가 전파되어 아무것도 저장되지 않으므로 클라이언트는 같은 내용으로 재시도하면 된다.
-        val answer = if (ai.enabled || ai.canReplyWithoutRag(content)) ai.reply(user, history, content) else null
+        val media = attachments.historyMedia(history.map { it.id!! }, prepared)
+        val answer = if (ai.enabled || ai.canReplyWithoutRag(content)) ai.reply(user, history, content, context, media) else null
         transactionTemplate.executeWithoutResult {
-            messages.save(
+            val saved = messages.saveAndFlush(
                 ChatMessage(
                     conversation = conversation,
                     role = MessageRole.USER,
                     content = content,
                     clientPlatform = clientPlatform,
+                    clientRequestId = request.clientRequestId,
+                    requestDigest = digest,
                     createdAt = receivedAt,
                 )
             )
+            attachments.link(user.id!!, request.attachmentIds, saved.id!!)
             if (conversation.title == "새 대화") conversation.title = content.take(40)
             answer?.let {
                 messages.save(ChatMessage(conversation = conversation, role = MessageRole.ASSISTANT, content = it.take(12000), createdAt = Instant.now()))
@@ -319,7 +340,10 @@ class ChatService(
         return ChatResponse(
             value.id!!,
             value.title,
-            result.content.asReversed().map { MessageResponse(it.id!!, it.role, it.content, it.createdAt) },
+            result.content.asReversed().map {
+                val files = attachments.forMessage(it.id!!)
+                MessageResponse(it.id!!, it.role, it.content, it.createdAt, files, if (files.isEmpty()) null else "COMPLETED")
+            },
             page,
             size,
             result.hasNext(),

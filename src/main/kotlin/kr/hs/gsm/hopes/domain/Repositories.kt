@@ -39,6 +39,7 @@ interface ConversationRepository : JpaRepository<Conversation, Long> {
 }
 
 interface ChatMessageRepository : JpaRepository<ChatMessage, Long> {
+    fun findByConversationIdAndClientRequestId(conversationId: Long, clientRequestId: String): ChatMessage?
     fun findAllByConversationIdOrderByCreatedAtAscIdAsc(conversationId: Long): List<ChatMessage>
     fun findAllByConversationIdOrderByCreatedAtDescIdDesc(conversationId: Long, pageable: Pageable): Slice<ChatMessage>
 

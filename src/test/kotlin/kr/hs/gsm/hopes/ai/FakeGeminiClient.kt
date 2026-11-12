@@ -11,6 +11,13 @@ class FakeGeminiClient : GeminiClient("test-key", "test-chat-model") {
     var generateError: RuntimeException? = null
     var answer: String = "테스트 답변"
     var mealIntent: Boolean = false
+    val mediaRequests = mutableListOf<List<AiAttachment>>()
+
+    override fun generateWithAttachments(systemPrompt: String, turns: List<Pair<String, String>>, attachments: List<AiAttachment>): String {
+        generateError?.let { throw it }
+        mediaRequests += attachments
+        return generate(systemPrompt, turns)
+    }
 
     override val hasKey: Boolean get() = true
 
