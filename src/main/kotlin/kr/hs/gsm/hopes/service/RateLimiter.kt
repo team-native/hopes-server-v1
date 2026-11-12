@@ -40,6 +40,10 @@ class RateLimiter(
         check("message", email.lowercase(), messagesPerMinute, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요")
     }
 
+    fun checkFeature(scope: String, email: String, limit: Int) {
+        check(scope, email.lowercase(), limit, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요")
+    }
+
     fun checkVerificationRequest(email: String, clientAddress: String) {
         checkAuthIp(clientAddress)
         check(

@@ -1,0 +1,30 @@
+CREATE TABLE community_boards (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, cohort INTEGER UNIQUE, sort_order INTEGER NOT NULL
+);
+INSERT INTO community_boards(name,cohort,sort_order) VALUES ('전체',NULL,0);
+CREATE TABLE community_posts (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, board_id BIGINT NOT NULL, author_id BIGINT NOT NULL,
+ title VARCHAR(200) NOT NULL, content VARCHAR(10000) NOT NULL, client_request_id VARCHAR(100), deleted BOOLEAN NOT NULL,
+ created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NOT NULL,
+ UNIQUE(author_id,client_request_id), FOREIGN KEY(board_id) REFERENCES community_boards(id), FOREIGN KEY(author_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_community_posts_board ON community_posts(board_id,deleted,created_at,id);
+CREATE INDEX idx_community_posts_author ON community_posts(author_id,deleted,created_at,id);
+CREATE TABLE community_comments (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, post_id BIGINT NOT NULL, author_id BIGINT NOT NULL,
+ content VARCHAR(2000) NOT NULL, client_request_id VARCHAR(100), deleted BOOLEAN NOT NULL,
+ created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NOT NULL,
+ UNIQUE(author_id,client_request_id), FOREIGN KEY(post_id) REFERENCES community_posts(id) ON DELETE CASCADE,
+ FOREIGN KEY(author_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_community_comments_post ON community_comments(post_id,deleted,created_at,id);
+CREATE INDEX idx_community_comments_author ON community_comments(author_id,deleted,created_at,id);
+CREATE TABLE community_likes (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, post_id BIGINT NOT NULL, user_id BIGINT NOT NULL,
+ UNIQUE(user_id,post_id), FOREIGN KEY(post_id) REFERENCES community_posts(id) ON DELETE CASCADE, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE community_reports (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, reporter_id BIGINT NOT NULL, target_type VARCHAR(10) NOT NULL,
+ target_id BIGINT NOT NULL, reason_code VARCHAR(50) NOT NULL, detail VARCHAR(2000) NOT NULL, created_at DATETIME(6) NOT NULL,
+ UNIQUE(reporter_id,target_type,target_id), FOREIGN KEY(reporter_id) REFERENCES users(id) ON DELETE CASCADE
+);

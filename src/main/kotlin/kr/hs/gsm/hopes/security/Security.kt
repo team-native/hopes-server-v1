@@ -100,7 +100,7 @@ class SecurityConfig(
     fun corsConfigurationSource(@Value("\${hopes.cors.allowed-origins}") origins: String): CorsConfigurationSource {
         val config = CorsConfiguration().apply {
             allowedOrigins = origins.split(',').map(String::trim)
-            allowedMethods = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")
+            allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
             allowedHeaders = listOf("Authorization", "Content-Type", "X-Hopes-Client")
             allowCredentials = true
         }
@@ -129,7 +129,7 @@ class SecurityConfig(
             it.authenticationEntryPoint { _, response, _ ->
                 response.status = 401
                 response.contentType = "application/json;charset=UTF-8"
-                objectMapper.writeValue(response.writer, mapOf("message" to "로그인이 필요합니다"))
+                objectMapper.writeValue(response.writer, mapOf("code" to "UNAUTHORIZED", "message" to "로그인이 필요합니다"))
             }
         }
         .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter::class.java)
