@@ -96,6 +96,7 @@ data class MessageResponse(
     val id: Long, val role: MessageRole, val content: String, val createdAt: Instant,
     val attachments: List<kr.hs.gsm.hopes.feature.AttachmentDto> = emptyList(),
     val analysisStatus: String? = null,
+    val contentFormat: String = if (role == MessageRole.ASSISTANT) "MARKDOWN" else "PLAIN_TEXT",
 )
 data class ChatResponse(
     val id: Long,
