@@ -65,7 +65,7 @@ hopes:
     policy-version: ${RECOMMENDATION_POLICY_VERSION:1}
   ai:
     enabled: ${AI_ENABLED:true}
-    provider: ${AI_PROVIDER:openai}
+    provider: ${AI_PROVIDER:auto}
     openai:
       api-key: ${OPENAI_API_KEY:}
       chat-model: ${OPENAI_CHAT_MODEL:}

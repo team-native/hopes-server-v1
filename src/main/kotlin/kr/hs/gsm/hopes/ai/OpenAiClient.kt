@@ -5,7 +5,7 @@ import java.util.Base64
 import kr.hs.gsm.hopes.api.ApiException
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.annotation.Conditional
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpStatus
@@ -16,7 +16,7 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 
 @Configuration
-@ConditionalOnProperty(name = ["hopes.ai.provider"], havingValue = "openai", matchIfMissing = true)
+@Conditional(OpenAiAvailableCondition::class)
 class OpenAiHttpConfiguration {
     @Bean("openAiRestClient")
     fun restClient(
@@ -39,7 +39,7 @@ class OpenAiHttpConfiguration {
 
 /** Raw Responses API adapter. No SDK convenience output_text field is assumed. */
 @Service
-@ConditionalOnProperty(name = ["hopes.ai.provider"], havingValue = "openai", matchIfMissing = true)
+@Conditional(OpenAiAvailableCondition::class)
 class OpenAiClient(
     @Value("\${hopes.ai.openai.api-key:}") private val apiKey: String,
     @Value("\${hopes.ai.openai.chat-model:}") private val chatModel: String,

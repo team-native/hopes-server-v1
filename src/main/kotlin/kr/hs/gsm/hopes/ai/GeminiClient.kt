@@ -7,18 +7,18 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import java.util.Base64
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.annotation.Conditional
 
 /** Google Generative Language REST API 호출 담당 (답변 생성). 임베딩은 [EmbeddingModel]이 로컬에서 처리. */
 @Service
-@ConditionalOnProperty(name = ["hopes.ai.provider"], havingValue = "gemini")
+@Conditional(GeminiFallbackCondition::class)
 class GeminiClient(
     @Value("\${hopes.ai.gemini-api-key}") private val apiKey: String,
     @Value("\${hopes.ai.chat-model}") private val chatModel: String,
     // 답변은 저장 시 12000자로 잘리므로 그보다 길게 생성하면 비용·대기시간만 낭비된다. 생성 단계에서 상한.
     @Value("\${hopes.ai.max-output-tokens:2048}") private val maxOutputTokens: Int = 2048,
 ) : AiClient {
-    override val hasKey: Boolean get() = apiKey.isNotBlank()
+    override val hasKey: Boolean get() = apiKey.isNotBlank() && chatModel.isNotBlank()
 
     private val rest: RestClient = RestClient.builder()
         .baseUrl("https://generativelanguage.googleapis.com/v1beta")

@@ -59,7 +59,7 @@ mvn spring-boot:run
 
 ## AI (로컬 RAG + OpenAI)
 
-답변 생성의 기본 공급자는 OpenAI Responses API다. RAG 임베딩은 기존 로컬 E5/DJL을 그대로 사용하며 OpenAI 임베딩으로 변경하지 않았다. 기존 SendMessageRequest/ChatResponse와 급식 조회 흐름도 유지한다.
+답변 공급자는 시작 시 자동 선택한다. OpenAI 키·답변 모델이 모두 있으면 OpenAI Responses API를 쓰고, 하나라도 없으면 기존 Gemini를 쓴다. RAG 임베딩은 기존 로컬 E5/DJL을 그대로 사용하며 OpenAI 임베딩으로 변경하지 않았다. 기존 SendMessageRequest/ChatResponse와 급식 조회 흐름도 유지한다.
 
 1. 서버가 로컬 E5로 JSONL 안내 자료를 임베딩하고 캐시를 관리한다.
 2. 텍스트 질문은 최근 대화로 급식 조회 의도를 분류한 뒤, 해당하면 나이스 식단을 사용한다. 다른 질문은 RAG 검색 결과·대화·채팅 맥락을 답변 모델에 전달한다.
@@ -71,16 +71,16 @@ mvn spring-boot:run
 키 입력과 실제 호출은 아직 보류된 상태다. 아래에는 변수 이름만 적으며 실제 키를 저장소에 넣지 않는다. 모델은 계정에서 Responses API·이미지·PDF 입력 지원을 확인한 뒤 지정한다. 모델을 임의로 확정하거나 최신 모델로 자동 변경하지 않는다.
 
 ```properties
-AI_PROVIDER=openai
+AI_PROVIDER=auto
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=
 ```
 
-키와 답변 모델이 모두 있어야 OpenAI 기능이 활성화된다. 비어 있으면 외부 OpenAI 호출과 RAG 시작을 생략한다. 기존 비활성 모드에서는 일반 텍스트 질문만 저장되고 AI 답변은 생성되지 않으며, 첨부 분석은 503이다. 이 상태를 AI 정상 연동으로 간주하지 않는다. 모델을 지정할 때는 reasoning 토큰을 포함한 출력 한도도 확인한다.
+OpenAI 키와 답변 모델이 모두 있어야 OpenAI가 선택된다. 하나라도 비어 있으면 GEMINI_API_KEY와 AI_CHAT_MODEL을 사용하는 기존 Gemini가 선택된다. Gemini 키·모델도 없으면 외부 AI 호출과 RAG 시작을 생략한다. 기존 비활성 모드에서는 일반 텍스트 질문만 저장되고 AI 답변은 생성되지 않으며, 첨부 분석은 503이다. 이 상태를 AI 정상 연동으로 간주하지 않는다. 모델을 지정할 때는 reasoning 토큰을 포함한 출력 한도도 확인한다.
 
 | 환경 변수 | 기본값·설명 |
 |---|---|
-| AI_PROVIDER | openai. Gemini 유지가 필요하면 gemini를 명시하며 자동 fallback은 없음 |
+| AI_PROVIDER | auto(기본). auto/openai는 OpenAI 설정이 완전하면 OpenAI, 아니면 Gemini. gemini는 항상 Gemini |
 | OPENAI_API_KEY | 빈 값. 실제 키 연결 보류 |
 | OPENAI_CHAT_MODEL | 빈 값. Responses·이미지·PDF 지원 모델을 확인 후 지정 |
 | OPENAI_CLASSIFICATION_MODEL | 빈 값이면 답변 모델 재사용. 필요하면 별도 분류 모델 지정 |
@@ -89,7 +89,7 @@ OPENAI_CHAT_MODEL=
 | OPENAI_READ_TIMEOUT_MS | 60000 |
 | AI_MAX_OUTPUT_TOKENS | 기존값 640. 최소16. 모델의 reasoning·출력 요구에 맞게 조정 |
 
-기존 Gemini Client는 AI_PROVIDER=gemini를 명시하는 경우에만 선택된다. 그 경우에만 GEMINI_API_KEY와 AI_CHAT_MODEL을 사용한다. OpenAI 설정이 없다고 Gemini 키를 대신 사용하지 않는다.
+선택은 서버 시작 시 한 번 이루어지므로 키·모델 변경 후에는 재시작한다. Gemini는 기존 GEMINI_API_KEY와 AI_CHAT_MODEL을 사용한다. OpenAI 호출 중 인증 오류·429·타임아웃이 발생했을 때 다른 공급자로 자동 재전송하지 않는다. AI_PROVIDER=gemini를 명시하면 OpenAI 설정이 있어도 Gemini를 사용한다.
 
 ### 검증
 
