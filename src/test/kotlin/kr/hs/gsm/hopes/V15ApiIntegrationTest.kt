@@ -56,7 +56,10 @@ constructor(
     private val ai: FakeGeminiClient,
     private val rag: RagIndexService,
 ) {
-    private fun user(cohort: Int = 10): String {
+    private fun user(cohort: Int = 10): String = account(cohort).first
+
+    /** 토큰과 함께 이메일·아이디·닉네임에 공통으로 들어가는 고유 키를 돌려준다. */
+    private fun account(cohort: Int = 10): Pair<String, String> {
         val key = UUID.randomUUID().toString()
         val u =
             users.save(
@@ -68,8 +71,21 @@ constructor(
                     cohort = cohort,
                 )
             )
-        return "Bearer ${tokens.create(u.email,u.tokenVersion)}"
+        return "Bearer ${tokens.create(u.email,u.tokenVersion)}" to key
     }
+
+    private fun boardId(token: String, cohort: Int?) =
+        call("GET", "/api/community/boards", token)["items"]
+            .first { if (cohort == null) it["cohort"].isNull else it["cohort"].asInt() == cohort }[
+                "id"]
+            .asLong()
+
+    private fun raw(path: String, token: String) =
+        mvc.perform(get(path).header("Authorization", token))
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
 
     private fun call(
         method: String,
@@ -360,6 +376,89 @@ constructor(
         assertEquals(0, call("GET", "/api/community/posts/$id", owner)["commentCount"].asInt())
         call("DELETE", "/api/community/posts/$id", owner, expected = 204)
         call("GET", "/api/community/posts/$id", owner, expected = 404)
+    }
+
+    @Test
+    fun `every community read response hides author identity and author cohort`() {
+        val (owner, ownerKey) = account(10)
+        val (other, otherKey) = account(8)
+        val board8 = boardId(owner, 8)
+        val board10 = boardId(owner, 10)
+        val marker = UUID.randomUUID().toString()
+        val postId =
+            call(
+                    "POST",
+                    "/api/community/posts",
+                    owner,
+                    """{"boardId":$board8,"title":"$marker","content":"본문"}""",
+                    201,
+                )["id"]
+                .asLong()
+        call("POST", "/api/community/posts/$postId/comments", other, """{"content":"댓글"}""", 201)
+
+        // 게시판 분류는 글을 올린 게시판(8기)을 따르고 작성자 기수(10기)와 무관하다.
+        assertEquals(board8, call("GET", "/api/community/posts/$postId", other)["boardId"].asLong())
+        val inBoard8 = call("GET", "/api/community/posts?boardId=$board8&keyword=$marker", other)
+        assertEquals(listOf(postId), inBoard8["items"].map { it["id"].asLong() })
+        val inBoard10 = call("GET", "/api/community/posts?boardId=$board10&keyword=$marker", other)
+        assertEquals(0, inBoard10["items"].size())
+
+        val responses =
+            mapOf(
+                "list" to raw("/api/community/posts?boardId=$board8", other),
+                "search" to raw("/api/community/posts?keyword=$marker", other),
+                "detail" to raw("/api/community/posts/$postId", other),
+                "comments" to raw("/api/community/posts/$postId/comments", owner),
+                "myPosts" to raw("/api/community/me/posts", owner),
+                "myComments" to raw("/api/community/me/comments", other),
+            )
+        val forbiddenKeys =
+            listOf("authorId", "userId", "email", "nickname", "username", "cohort", "studentNumber")
+        for ((name, body) in responses) {
+            assertFalse(body.contains(ownerKey), "$name 응답에 작성자 식별값이 노출됨")
+            assertFalse(body.contains(otherKey), "$name 응답에 댓글 작성자 식별값이 노출됨")
+            for (key in forbiddenKeys) assertFalse(body.contains("\"$key\""), "$name 응답에 $key 필드가 있음")
+        }
+    }
+
+    @Test
+    fun `other users cannot delete comments and post pages are ordered and bounded`() {
+        val owner = user(10)
+        val other = user(10)
+        val board = boardId(owner, null)
+        val marker = UUID.randomUUID().toString()
+        val ids =
+            (1..3).map {
+                call(
+                        "POST",
+                        "/api/community/posts",
+                        owner,
+                        """{"boardId":$board,"title":"$marker-$it","content":"본문"}""",
+                        201,
+                    )["id"]
+                    .asLong()
+            }
+        val c =
+            call("POST", "/api/community/posts/${ids[0]}/comments", owner, """{"content":"내 댓글"}""", 201)[
+                    "id"]
+                .asLong()
+        call("DELETE", "/api/community/comments/$c", other, expected = 403)
+        assertEquals(1, call("GET", "/api/community/posts/${ids[0]}/comments", other)["items"].size())
+        call("DELETE", "/api/community/comments/$c", owner, expected = 204)
+        call("DELETE", "/api/community/comments/$c", owner, expected = 404)
+        call("PATCH", "/api/community/comments/$c", owner, """{"content":"부활"}""", 404)
+
+        val first = call("GET", "/api/community/posts?keyword=$marker&page=0&size=2", other)
+        assertEquals(ids.reversed().take(2), first["items"].map { it["id"].asLong() })
+        assertTrue(first["hasNext"].asBoolean())
+        val second = call("GET", "/api/community/posts?keyword=$marker&page=1&size=2", other)
+        assertEquals(listOf(ids[0]), second["items"].map { it["id"].asLong() })
+        assertFalse(second["hasNext"].asBoolean())
+        call("GET", "/api/community/posts?size=0", other, expected = 400)
+        call("GET", "/api/community/posts?size=101", other, expected = 400)
+        call("GET", "/api/community/posts?size=100", other)
+        call("GET", "/api/community/posts/${ids[0]}/comments?size=101", other, expected = 400)
+        call("GET", "/api/community/me/posts?page=-1", owner, expected = 400)
     }
 
     @Test
