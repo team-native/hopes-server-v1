@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.http.HttpStatus
@@ -43,6 +44,8 @@ class CommunityPost(
     @Column(nullable = false, length = 10000) var content: String = "",
     @Column(length = 100) var clientRequestId: String? = null,
     @Column(nullable = false) var deleted: Boolean = false,
+    /** 운영자 숨김. 작성자 삭제(deleted)와 달리 내용을 지우지 않고 복구할 수 있다. */
+    @Column(nullable = false) var hidden: Boolean = false,
     @Column(nullable = false) var createdAt: Instant = Instant.now(),
     @Column(nullable = false) var updatedAt: Instant = Instant.now(),
 )
@@ -59,6 +62,8 @@ class CommunityComment(
     @Column(nullable = false, length = 2000) var content: String = "",
     @Column(length = 100) var clientRequestId: String? = null,
     @Column(nullable = false) var deleted: Boolean = false,
+    /** 운영자 숨김. 작성자 삭제(deleted)와 달리 내용을 지우지 않고 복구할 수 있다. */
+    @Column(nullable = false) var hidden: Boolean = false,
     @Column(nullable = false) var createdAt: Instant = Instant.now(),
     @Column(nullable = false) var updatedAt: Instant = Instant.now(),
 )
@@ -88,7 +93,19 @@ class CommunityReport(
     @Column(nullable = false, length = 50) var reasonCode: String = "",
     @Column(nullable = false, length = 2000) var detail: String = "",
     @Column(nullable = false) var createdAt: Instant = Instant.now(),
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    var status: ReportStatus = ReportStatus.RECEIVED,
+    /** 댓글 신고일 때 운영자가 문맥을 볼 수 있도록 원 게시글 ID를 함께 둔다. */
+    var targetPostId: Long? = null,
+    /** 신고 시점 증거. 작성자가 글을 삭제·수정해도 남고, 처리 후 보관 기간이 지나면 지운다. */
+    @Column(length = 200) var snapshotTitle: String? = null,
+    @Column(length = 10000) var snapshotContent: String? = null,
+    var resolvedAt: Instant? = null,
+    var evidencePurgedAt: Instant? = null,
 )
+
+enum class ReportStatus { RECEIVED, RESOLVED, DISMISSED }
 
 interface BoardRepository : JpaRepository<CommunityBoard, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -105,11 +122,11 @@ interface BoardRepository : JpaRepository<CommunityBoard, Long> {
 
 interface PostRepository : JpaRepository<CommunityPost, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from CommunityPost p where p.id = :id and p.deleted = false")
+    @Query("select p from CommunityPost p where p.id = :id and p.deleted = false and p.hidden = false")
     fun lock(@Param("id") id: Long): CommunityPost?
 
     @Query(
-        "select p from CommunityPost p where p.deleted = false and (:board is null or p.boardId = :board) and (lower(p.title) like :keyword escape '!' or lower(p.content) like :keyword escape '!') order by p.createdAt desc, p.id desc"
+        "select p from CommunityPost p where p.deleted = false and p.hidden = false and (:board is null or p.boardId = :board) and (lower(p.title) like :keyword escape '!' or lower(p.content) like :keyword escape '!') order by p.createdAt desc, p.id desc"
     )
     fun search(
         @Param("board") board: Long?,
@@ -117,7 +134,7 @@ interface PostRepository : JpaRepository<CommunityPost, Long> {
         pageable: Pageable,
     ): Slice<CommunityPost>
 
-    fun findAllByAuthorIdAndDeletedFalseOrderByCreatedAtDescIdDesc(
+    fun findAllByAuthorIdAndDeletedFalseAndHiddenFalseOrderByCreatedAtDescIdDesc(
         authorId: Long,
         pageable: Pageable,
     ): Slice<CommunityPost>
@@ -126,22 +143,22 @@ interface PostRepository : JpaRepository<CommunityPost, Long> {
 }
 
 interface CommentRepository : JpaRepository<CommunityComment, Long> {
-    fun findAllByPostIdAndDeletedFalseOrderByCreatedAtAscIdAsc(
+    fun findAllByPostIdAndDeletedFalseAndHiddenFalseOrderByCreatedAtAscIdAsc(
         postId: Long,
         pageable: Pageable,
     ): Slice<CommunityComment>
 
-    fun findAllByAuthorIdAndDeletedFalseOrderByCreatedAtDescIdDesc(
+    fun findAllByAuthorIdAndDeletedFalseAndHiddenFalseOrderByCreatedAtDescIdDesc(
         authorId: Long,
         pageable: Pageable,
     ): Slice<CommunityComment>
 
-    fun countByPostIdAndDeletedFalse(postId: Long): Long
+    fun countByPostIdAndDeletedFalseAndHiddenFalse(postId: Long): Long
 
     fun findByAuthorIdAndClientRequestId(authorId: Long, clientRequestId: String): CommunityComment?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select c from CommunityComment c where c.id = :id and c.deleted = false")
+    @Query("select c from CommunityComment c where c.id = :id and c.deleted = false and c.hidden = false")
     fun lock(@Param("id") id: Long): CommunityComment?
 }
 
@@ -157,6 +174,22 @@ interface ReportRepository : JpaRepository<CommunityReport, Long> {
         targetType: String,
         targetId: Long,
     ): Boolean
+
+    fun findAllByOrderByCreatedAtDescIdDesc(pageable: Pageable): Slice<CommunityReport>
+
+    fun findAllByStatusOrderByCreatedAtDescIdDesc(
+        status: ReportStatus,
+        pageable: Pageable,
+    ): Slice<CommunityReport>
+
+    fun countByTargetTypeAndTargetId(targetType: String, targetId: Long): Long
+
+    /** 처리 완료 후 보관 기간이 지난 신고의 증거(신고 시점 내용과 신고 상세)를 지운다. */
+    @Modifying
+    @Query(
+        "update CommunityReport r set r.snapshotTitle = null, r.snapshotContent = null, r.detail = '', r.evidencePurgedAt = :now where r.status <> kr.hs.gsm.hopes.feature.ReportStatus.RECEIVED and r.resolvedAt < :cutoff and r.evidencePurgedAt is null"
+    )
+    fun purgeEvidence(@Param("cutoff") cutoff: Instant, @Param("now") now: Instant): Int
 }
 
 data class BoardDto(val id: Long, val name: String, val cohort: Int?, val sortOrder: Int)
@@ -239,6 +272,7 @@ class CommunityService(
     private val comments: CommentRepository,
     private val likes: LikeRepository,
     private val reports: ReportRepository,
+    private val sanctions: SanctionRepository,
     private val limits: RateLimiter,
 ) {
     fun boards(): Map<String, List<BoardDto>> {
@@ -261,7 +295,7 @@ class CommunityService(
         boards.findById(id).orElse(null) ?: fail(HttpStatus.NOT_FOUND, "게시판을 찾을 수 없습니다")
 
     private fun post(id: Long) =
-        posts.findById(id).orElse(null)?.takeUnless { it.deleted }
+        posts.findById(id).orElse(null)?.takeUnless { it.deleted || it.hidden }
             ?: fail(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다")
 
     private fun lockedPost(id: Long) =
@@ -269,6 +303,17 @@ class CommunityService(
 
     private fun own(author: Long, uid: Long) {
         if (author != uid) fail(HttpStatus.FORBIDDEN, "본인이 작성한 내용만 변경할 수 있습니다")
+    }
+
+    /** 운영자에게 글쓰기 정지를 받은 동안에는 글·댓글 작성과 수정을 막는다. 열람·좋아요·신고·삭제는 허용한다. */
+    private fun ensureCanWrite(uid: Long) {
+        val ban =
+            sanctions.findFirstByUserIdAndSanctionTypeAndEndsAtAfterOrderByEndsAtDesc(
+                uid,
+                SanctionType.WRITE_BAN,
+                Instant.now(),
+            ) ?: return
+        fail(HttpStatus.FORBIDDEN, "커뮤니티 글쓰기가 ${ban.endsAt}까지 제한되었습니다")
     }
 
     private fun dto(p: CommunityPost, uid: Long) =
@@ -280,7 +325,7 @@ class CommunityService(
             p.createdAt,
             p.updatedAt,
             likes.countByPostId(p.id!!),
-            comments.countByPostIdAndDeletedFalse(p.id!!),
+            comments.countByPostIdAndDeletedFalseAndHiddenFalse(p.id!!),
             likes.findByUserIdAndPostId(uid, p.id!!) != null,
             p.authorId == uid,
         )
@@ -329,6 +374,7 @@ class CommunityService(
     fun create(email: String, r: PostRequest): PostDto {
         val user = uid(email)
         limits.checkFeature("community-write", email, 20)
+        ensureCanWrite(user)
         board(r.boardId)
         val title = requiredText(r.title, 200)
         val content = requiredText(r.content, 10000)
@@ -364,6 +410,7 @@ class CommunityService(
         val user = uid(email)
         val p = lockedPost(id)
         own(p.authorId, user)
+        ensureCanWrite(user)
         if (r.title == null && r.content == null) fail(HttpStatus.BAD_REQUEST, "변경할 내용을 입력해주세요")
         r.title?.let { p.title = requiredText(it, 200) }
         r.content?.let { p.content = requiredText(it, 10000) }
@@ -384,7 +431,7 @@ class CommunityService(
         val user = uid(email)
         post(id)
         val rows =
-            comments.findAllByPostIdAndDeletedFalseOrderByCreatedAtAscIdAsc(
+            comments.findAllByPostIdAndDeletedFalseAndHiddenFalseOrderByCreatedAtAscIdAsc(
                 id,
                 pageRequest(page, size),
             )
@@ -394,6 +441,7 @@ class CommunityService(
     fun comment(email: String, id: Long, r: CommentRequest): CommentDto {
         val user = uid(email)
         limits.checkFeature("community-write", email, 20)
+        ensureCanWrite(user)
         lockedPost(id)
         val content = requiredText(r.content, 2000)
         r.clientRequestId?.let { key ->
@@ -421,6 +469,7 @@ class CommunityService(
         post(c.postId)
         val user = uid(email)
         own(c.authorId, user)
+        ensureCanWrite(user)
         c.content = requiredText(r.content, 2000)
         c.updatedAt = Instant.now()
         return commentDto(c, user)
@@ -451,14 +500,18 @@ class CommunityService(
     fun report(email: String, r: ReportRequest): Map<String, Any> {
         val user = uid(email)
         limits.checkFeature("community-report", email, 10)
-        when (r.targetType) {
-            "POST" -> lockedPost(r.targetId)
-            "COMMENT" -> {
-                val c = comments.lock(r.targetId) ?: fail(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다")
-                post(c.postId)
+        // 신고 시점의 내용을 증거로 복사해 둔다. 작성자가 나중에 지우거나 고쳐도 운영자는 이 내용을 본다.
+        val evidence: Triple<String?, String, Long> =
+            when (r.targetType) {
+                "POST" -> lockedPost(r.targetId).let { Triple(it.title, it.content, it.id!!) }
+                "COMMENT" -> {
+                    val c =
+                        comments.lock(r.targetId) ?: fail(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다")
+                    post(c.postId)
+                    Triple(null, c.content, c.postId)
+                }
+                else -> fail(HttpStatus.BAD_REQUEST, "신고 대상은 POST 또는 COMMENT여야 합니다")
             }
-            else -> fail(HttpStatus.BAD_REQUEST, "신고 대상은 POST 또는 COMMENT여야 합니다")
-        }
         if (reports.existsByReporterIdAndTargetTypeAndTargetId(user, r.targetType, r.targetId))
             fail(HttpStatus.CONFLICT, "이미 신고한 대상입니다")
         val reason = requiredText(r.reasonCode, 50)
@@ -473,6 +526,9 @@ class CommunityService(
                     targetId = r.targetId,
                     reasonCode = reason,
                     detail = r.detail.orEmpty().trim(),
+                    snapshotTitle = evidence.first,
+                    snapshotContent = evidence.second,
+                    targetPostId = evidence.third,
                 )
             )
         return mapOf("id" to row.id!!, "status" to "RECEIVED", "createdAt" to row.createdAt)
@@ -481,7 +537,7 @@ class CommunityService(
     fun mine(email: String, page: Int, size: Int): ResultPage<PostPreview> {
         val user = uid(email)
         val rows =
-            posts.findAllByAuthorIdAndDeletedFalseOrderByCreatedAtDescIdDesc(
+            posts.findAllByAuthorIdAndDeletedFalseAndHiddenFalseOrderByCreatedAtDescIdDesc(
                 user,
                 pageRequest(page, size),
             )
@@ -490,7 +546,7 @@ class CommunityService(
 
     fun myComments(email: String, page: Int, size: Int): ResultPage<MyCommentDto> {
         val rows =
-            comments.findAllByAuthorIdAndDeletedFalseOrderByCreatedAtDescIdDesc(
+            comments.findAllByAuthorIdAndDeletedFalseAndHiddenFalseOrderByCreatedAtDescIdDesc(
                 uid(email),
                 pageRequest(page, size),
             )
@@ -499,7 +555,7 @@ class CommunityService(
                 MyCommentDto(
                     c.id!!,
                     c.postId,
-                    posts.findById(c.postId).orElse(null)?.takeUnless { it.deleted }?.title,
+                    posts.findById(c.postId).orElse(null)?.takeUnless { it.deleted || it.hidden }?.title,
                     c.content,
                     c.createdAt,
                 )

@@ -14,6 +14,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -81,8 +82,10 @@ class AccessTokenFilter(
         val token = request.getHeader("Authorization")?.takeIf { it.startsWith("Bearer ") }?.removePrefix("Bearer ")
         val claims = token?.let(tokenService::parse)
         val user = claims?.let { users.findByEmail(it.email) }
-        if (claims != null && user?.tokenVersion == claims.tokenVersion) {
-            SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken(claims.email, null, emptyList())
+        if (claims != null && user != null && user.tokenVersion == claims.tokenVersion) {
+            // 권한은 토큰이 아니라 매 요청 DB에서 읽는다. 운영자 권한을 회수하면 다음 요청부터 바로 막힌다.
+            val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role.name}"))
+            SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken(claims.email, null, authorities)
         }
         filterChain.doFilter(request, response)
     }
@@ -123,6 +126,7 @@ class SecurityConfig(
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                 ).permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
         }
         .exceptionHandling {
@@ -130,6 +134,11 @@ class SecurityConfig(
                 response.status = 401
                 response.contentType = "application/json;charset=UTF-8"
                 objectMapper.writeValue(response.writer, mapOf("code" to "UNAUTHORIZED", "message" to "로그인이 필요합니다"))
+            }
+            it.accessDeniedHandler { _, response, _ ->
+                response.status = 403
+                response.contentType = "application/json;charset=UTF-8"
+                objectMapper.writeValue(response.writer, mapOf("code" to "FORBIDDEN", "message" to "운영자 권한이 필요합니다"))
             }
         }
         .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter::class.java)

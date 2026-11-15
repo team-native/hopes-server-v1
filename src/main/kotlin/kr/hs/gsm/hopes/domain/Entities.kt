@@ -7,6 +7,9 @@ enum class Theme { DARK, LIGHT }
 enum class MessageRole { USER, ASSISTANT }
 enum class ClientPlatform { WEB, APP, UNKNOWN }
 
+/** 계정 권한. 운영자(ADMIN)는 API로 지정할 수 없고 DB에서 직접 바꾼다. */
+enum class UserRole { USER, ADMIN }
+
 @Entity
 @Table(name = "users")
 class User(
@@ -38,6 +41,9 @@ class User(
     var tokenVersion: Long = 0,
     @Column(nullable = false)
     var createdAt: Instant = Instant.now(),
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_role", nullable = false, length = 20)
+    var role: UserRole = UserRole.USER,
 )
 
 @Entity

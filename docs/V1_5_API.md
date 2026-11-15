@@ -44,10 +44,28 @@ GPS로 층·교실을 확정하지 않는다. QR/비콘, 실내 자동 추적, �
 - `/posts`: GET 목록·검색, POST 작성. `/posts/{postId}`: GET 상세, PATCH 수정, DELETE 삭제.
 - `/posts/{postId}/comments`: GET 목록, POST 작성. `/comments/{commentId}`: PATCH 수정, DELETE 삭제.
 - `/posts/{postId}/like`: PUT 등록, DELETE 취소. 같은 요청 반복과 동시 요청에 대해 사용자별 1개만 저장한다.
-- `/reports`: POST `{targetType:"POST" 또는 "COMMENT",targetId,reasonCode,detail?}`. reasonCode는 SPAM/ABUSE/PRIVACY/OTHER. 접수 202, 중복 409. 자동 숨김·운영자 제재는 별도 정책이 필요하다.
+- `/reports`: POST `{targetType:"POST" 또는 "COMMENT",targetId,reasonCode,detail?}`. reasonCode는 SPAM/ABUSE/PRIVACY/OTHER. 접수 202, 중복 409. 접수 시점의 제목·본문을 증거로 복사해 둔다. 자동 숨김은 하지 않는다.
 - `/me/posts`, `/me/comments`: GET 본인 기록. 타인 userId를 받지 않는다. 삭제된 원 게시글의 제목은 null로 반환한다.
 - 글 제목 200자, 본문 10,000자, 댓글/신고 상세 2,000자, 검색어 200자. page 기본0, size 기본20/최대100. 게시글 최신순, 댓글 오래된순이며 ID를 보조 정렬로 사용한다. 작성/댓글 분당20회, 좋아요 분당60회, 신고 분당10회.
-- 일반 응답에는 작성자 내부 ID·실명·학번·이메일·기수·지속 익명번호를 포함하지 않는다. isMine은 UI용이며 서버가 변경 권한을 다시 확인한다. 게시글·댓글 삭제는 삭제 상태로 바꾸고 내용을 비운다. 신고 증거 별도 보관/제재 정책은 미구현이다.
+- 일반 응답에는 작성자 내부 ID·실명·학번·이메일·기수·지속 익명번호를 포함하지 않는다. isMine은 UI용이며 서버가 변경 권한을 다시 확인한다. 게시글·댓글 삭제는 삭제 상태로 바꾸고 내용을 비운다. 운영자가 숨긴 글·댓글은 작성자를 포함한 일반 사용자에게 404이며 목록·검색·내 기록·댓글 수에서 빠진다. 글쓰기 정지 중에는 글·댓글 작성과 수정이 403이다(열람·좋아요·신고·삭제는 가능).
+
+## 커뮤니티 운영자
+
+운영자는 `users.account_role='ADMIN'`인 계정이다. API로 지정하지 않으며 DB에서 직접 바꾼다. 권한은 매 요청 DB에서 읽으므로 회수하면 즉시 적용된다. `/api/admin/**`는 운영자가 아니면 403이다.
+
+- `GET /api/admin/community/reports?status=RECEIVED|RESOLVED|DISMISSED&page&size`: 최신순 신고 목록. 같은 대상 신고 수 포함.
+- `GET /api/admin/community/reports/{reportId}`: 신고 상세. `evidence`(신고 시점 내용), `currentTarget`(현재 상태: 삭제·숨김 여부와 내용), 같은 대상 신고 수, 작성자의 누적 제재 횟수, 처리 기록.
+- `POST /api/admin/community/reports/{reportId}/actions`: `{action, memo?, days?}`. 모든 성공한 조치는 처리 기록(운영자 ID, 시각, 메모)에 남는다.
+
+| action | 동작 |
+|---|---|
+| HIDE / RESTORE | 대상 글·댓글 숨김 / 복구. 내용은 보존된다 |
+| WARN | 작성자에게 경고 기록(이용 제한 없음) |
+| SUSPEND | 작성자 커뮤니티 글쓰기 정지, `days` 1~365 필수 |
+| RESOLVE / DISMISS | 처리 완료 / 기각으로 닫기. 이미 닫힌 신고는 409 |
+| REOPEN | 닫힌 신고 다시 열기. 증거가 파기된 신고는 409 |
+
+운영자 응답에도 신고자·작성자의 계정 정보는 없다. 제재는 신고 대상의 작성자에게 적용된다. 처리 완료·기각 후 `COMMUNITY_EVIDENCE_RETENTION_DAYS`(기본 365일)가 지나면 매일 04:30(KST)에 증거와 신고 상세를 지운다. 처리 전 신고는 지우지 않는다. 작성자가 탈퇴하면 글·제재는 함께 삭제되고 신고 증거는 남는다. 운영자가 탈퇴하면 처리 기록의 운영자 ID만 비워진다. 신고자가 탈퇴하면 그 신고와 처리 기록이 함께 삭제된다(V7 외래키).
 
 ## 운영 설정
 
@@ -65,6 +83,7 @@ GPS로 층·교실을 확정하지 않는다. QR/비콘, 실내 자동 추적, �
 | ATTACHMENT_MULTIPART_MAX_FILE_SIZE | 10MB |
 | ATTACHMENT_MULTIPART_MAX_REQUEST_SIZE | 11MB |
 | RECOMMENDATION_POLICY_VERSION | 1 |
+| COMMUNITY_EVIDENCE_RETENTION_DAYS | 365 |
 | CAMPUS_DATA_PATH | 빈 값: 기준 자료 미등록 503 |
 | CAMPUS_MAX_ACCURACY_METERS | 100 |
 | CAMPUS_MAX_AGE_SECONDS | 120 |

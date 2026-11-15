@@ -54,6 +54,9 @@ hopes:
     max-pdf-pages: ${ATTACHMENT_MAX_PDF_PAGES:50}
     retention-hours: ${ATTACHMENT_RETENTION_HOURS:720}
     user-quota-bytes: ${ATTACHMENT_USER_QUOTA_BYTES:104857600}
+  community:
+    # 신고 처리 완료·기각 후 증거(신고 시점 내용)를 보관하는 일수
+    evidence-retention-days: ${COMMUNITY_EVIDENCE_RETENTION_DAYS:365}
   campus:
     data-path: ${CAMPUS_DATA_PATH:}
     max-accuracy-meters: ${CAMPUS_MAX_ACCURACY_METERS:100}
