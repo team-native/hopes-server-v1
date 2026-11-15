@@ -33,6 +33,21 @@ constructor(
     private val tokens: AccessTokenService,
     private val retention: ReportEvidenceRetention,
 ) {
+    @Test
+    fun `swagger exposes moderation contracts and UI without authentication`() {
+        val spec = call("GET", "/v3/api-docs", null)
+        val paths = spec["paths"]
+        assertTrue(paths["/api/admin/community/reports"].has("get"))
+        assertTrue(paths["/api/admin/community/reports/{reportId}"].has("get"))
+        val action = paths["/api/admin/community/reports/{reportId}/actions"]["post"]
+        assertEquals("커뮤니티 운영자", action["tags"][0].asText())
+        assertTrue(action["security"].any { it.has("bearerAuth") })
+        val request = spec["components"]["schemas"]["ModerationRequest"]
+        assertTrue(request["required"].any { it.asText() == "action" })
+        assertTrue(request["properties"].has("days"))
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk)
+    }
+
     private class Account(val token: String, val user: User)
 
     private fun account(role: UserRole = UserRole.USER): Account {

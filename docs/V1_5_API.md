@@ -51,6 +51,8 @@ GPS로 층·교실을 확정하지 않는다. QR/비콘, 실내 자동 추적, �
 
 ## 커뮤니티 운영자
 
+Swagger UI는 `/swagger-ui/index.html`, OpenAPI JSON은 `/v3/api-docs`에서 확인한다. 운영자 API는 `커뮤니티 운영자` 그룹에 모이며 실제 호출에는 ADMIN 계정의 Bearer 토큰이 필요하다.
+
 운영자는 `users.account_role='ADMIN'`인 계정이다. API로 지정하지 않으며 DB에서 직접 바꾼다. 권한은 매 요청 DB에서 읽으므로 회수하면 즉시 적용된다. `/api/admin/**`는 운영자가 아니면 403이다.
 
 - `GET /api/admin/community/reports?status=RECEIVED|RESOLVED|DISMISSED&page&size`: 최신순 신고 목록. 같은 대상 신고 수 포함.
@@ -118,3 +120,5 @@ buildings: [{ id, name, latitude, longitude, publicationApproved, floorPlans: [
 V9 마이그레이션에서 학과 3개·전공 9개의 관심 분야 설명을 보강하고 추천 질문 66개를 추가했다. 기존 17개 ID를 유지해 총 83개다. 기본 질문 8개, 학과별 4개씩, 전공별 4개씩, 학과·전공 독립 조합 27개별 1개씩 제공한다. 학교의 공식 교육과정이나 확인되지 않은 시설 정보를 추가한 것은 아니다.
 
 H2에서 V1~V9 적용과 전체 질문 중복·길이·카탈로그 참조·27개 조합의 누락 여부를 검증한다. MySQL용 V9도 같은 DML이지만 운영 MySQL 적용은 아직 확인하지 않았다.
+
+운영자 조치는 신고 행 잠금으로 직렬화하고, 숨김·복구는 작성자 수정과 같은 게시글·댓글 행 잠금을 사용한다. 동시 처리 완료·기각 요청 중 뒤 요청은 409이며, 수정과 숨김이 겹쳐도 수정 본문을 덮어쓰지 않는다.

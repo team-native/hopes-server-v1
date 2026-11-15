@@ -122,6 +122,10 @@ interface BoardRepository : JpaRepository<CommunityBoard, Long> {
 
 interface PostRepository : JpaRepository<CommunityPost, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from CommunityPost p where p.id = :id")
+    fun lockForModeration(@Param("id") id: Long): CommunityPost?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from CommunityPost p where p.id = :id and p.deleted = false and p.hidden = false")
     fun lock(@Param("id") id: Long): CommunityPost?
 
@@ -143,6 +147,10 @@ interface PostRepository : JpaRepository<CommunityPost, Long> {
 }
 
 interface CommentRepository : JpaRepository<CommunityComment, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from CommunityComment c where c.id = :id")
+    fun lockForModeration(@Param("id") id: Long): CommunityComment?
+
     fun findAllByPostIdAndDeletedFalseAndHiddenFalseOrderByCreatedAtAscIdAsc(
         postId: Long,
         pageable: Pageable,
@@ -169,6 +177,10 @@ interface LikeRepository : JpaRepository<CommunityLike, Long> {
 }
 
 interface ReportRepository : JpaRepository<CommunityReport, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from CommunityReport r where r.id = :id")
+    fun lockForAction(@Param("id") id: Long): CommunityReport?
+
     fun existsByReporterIdAndTargetTypeAndTargetId(
         reporterId: Long,
         targetType: String,

@@ -201,7 +201,9 @@ class ModerationService(
 
     fun act(email: String, id: Long, r: ModerationRequest): ReportDetailDto {
         val admin = requireAdmin(email)
-        val report = report(id)
+        // State checks and actions on the same report must be serialized.
+        val report = reports.lockForAction(id)
+            ?: fail(HttpStatus.NOT_FOUND, "신고를 찾을 수 없습니다")
         val action =
             runCatching { ModerationAction.valueOf(r.action.trim().uppercase()) }.getOrNull()
                 ?: fail(
@@ -244,8 +246,8 @@ class ModerationService(
 
     private fun setHidden(report: CommunityReport, hidden: Boolean) {
         when (report.targetType) {
-            "POST" -> targetPost(report)?.let { it.hidden = hidden }
-            else -> targetComment(report)?.let { it.hidden = hidden }
+            "POST" -> posts.lockForModeration(report.targetId)?.let { it.hidden = hidden }
+            else -> comments.lockForModeration(report.targetId)?.let { it.hidden = hidden }
         } ?: fail(HttpStatus.CONFLICT, "대상이 완전히 삭제되어 숨김 상태를 바꿀 수 없습니다")
     }
 
