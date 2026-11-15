@@ -111,6 +111,8 @@ buildings: [{ id, name, latitude, longitude, publicationApproved, floorPlans: [
 
 `mvn test` / `mvn package`. H2에서 실제 Flyway 마이그레이션과 JPA schema validate, MockMvc HTTP 계약·소유권·익명성·재시도·동시 좋아요, PNG/PDF 파일 검증, Fake AI Client로 바이너리 전달/실패 처리를 검증한다. 실제 OpenAI 호출과 키 연결은 보류 상태이며 자동 테스트에서는 모의 HTTP 서버로 계약만 검증한다. 앱 UI와 운영 MySQL·GSMSV 배포 확인은 별도다.
 
+실제 MySQL 검증은 `MySqlMigrationVerificationTest`로 한다. 평소에는 건너뛰며, 로컬 `.env`에 `DATABASE_USERNAME`/`DATABASE_PASSWORD`를 넣고 `MYSQL_VERIFY=true mvn -Dtest=MySqlMigrationVerificationTest test`로 실행한다(접속 주소 `MYSQL_VERIFY_HOST`, 기본 localhost:3306). `hopes_migtest_`로 시작하는 DB만 다시 만들며 운영 DB에는 연결하지 않는다. 확인 내용: 빈 DB에 V1~최신 적용과 utf8mb4·한글 seed, V4 데이터가 있는 DB에 서버를 띄워 V5~최신 적용 후 기존 로그인·대화·메시지 동작, 1.5 데이터를 가진 대화·계정 삭제가 외래키에 막히지 않음, 첨부 정리가 메타데이터가 사라진 파일만 지움.
+
 ## OpenAI 전환 상태
 
 기본 공급자는 openai다. OPENAI_API_KEY와 OPENAI_CHAT_MODEL은 비어 있으며 실제 연결·모델 선택·배포 활성화는 보류다. README의 설정 표와 모의 HTTP 검증 범위를 참고한다. 로컬 E5 임베딩·급식·기존 앱 DTO는 유지한다.
