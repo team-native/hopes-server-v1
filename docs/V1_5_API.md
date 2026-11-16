@@ -116,6 +116,15 @@ boundary: { type: "POLYGON", points: [{ latitude, longitude }, ...], source }
 
 좌표는 출처를 확인할 수 있는 값만 등록하며 `source`(boundary 또는 school)가 비어 있으면 시작 시 거부한다. POLYGON은 서로 다른 꼭짓점 3개 이상, 면적이 있고 변이 교차하지 않아야 한다(첫 점을 마지막에 반복해도 된다). 다각형 판정은 측정 위치 기준 국소 평면에서 ray casting으로 안팎을 구하고, 가장 가까운 변까지의 거리와 GPS 오차를 비교한다. 원형과 같은 규칙으로 오차 범위 전체가 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 겹치면 UNKNOWN이다. 경계 좌표가 없는 자료도 로딩할 수 있으며, 이때 지도 응답은 `locationCheckAvailable=false`이고 위치 비교만 503이다. 도면 공개 여부는 도면별 `publicationApproved`로 정하고, 없으면 건물의 `publicationApproved`(기본 false)를 따른다. 승인된 도면에는 HTTPS url이 필요하다. `GET /api/campus/buildings/{id}/floor-plans`는 승인된 도면만 응답하며, 도면에 시설 목록이 없으면 연결된 층의 공개 시설 목록을 붙인다. 승인되지 않은 도면은 개수·층·URL을 포함해 응답하지 않는다. 응답 reason: 승인된 도면이 있으면 AVAILABLE, 도면은 등록됐지만 승인된 것이 없으면 available=false/items=[]/NOT_APPROVED, 도면이 없으면 available=false/items=[]/NOT_REGISTERED. 미승인 도면에 대해 403을 반환하던 이전 동작은 200 + NOT_APPROVED로 바뀌었다. 현재 층을 알아내는 기능은 없다.
 
+### 등록된 기준 자료 (`ops/campus/gsm-campus.json`)
+
+`CAMPUS_DATA_PATH=ops/campus/gsm-campus.json`으로 지정한다(.env.example에 주석으로 표시). 공개 건축 도면은 없어서 학교 홈페이지용 배치도 이미지 3장(금봉관, 본관·실습동, 동행관)을 보고 건물 → 층 → 시설 목록으로 옮겼다. 건물 id: 1 본관(1~4F), 2 실습동(1~3F), 3 금봉관(1~4F), 4 동행관(1~5F).
+
+- 학교 좌표·경계와 건물 좌표는 출처가 있는 값을 받지 못해 비워 두었다. 지도 응답은 `locationCheckAvailable=false`이고 위치 비교는 503이다. 측량값·공식 지도 등 출처를 확인한 뒤 `school.boundary`(POLYGON 권장)와 `source`를 넣는다.
+- 배치도 이미지는 공개 승인 전이라 층마다 도면 항목만 `publicationApproved=false`, url 없이 등록했다. 도면 조회는 모두 NOT_APPROVED다. 승인되면 이미지를 HTTPS로 호스팅하고 해당 도면에 url과 `publicationApproved=true`를 넣는다.
+- 동행관 3~5F는 기숙사 층으로 보여 `facilitiesPublic=false`로 두었다. 2F의 201~213호·세탁실 등 기숙사로 보이는 칸과 판독이 불확실한 칸('프로그래밍 역습1실'로 보임)은 공개 목록에서 뺐다. 각 층 `note`에 판독 메모를 남겼고 note는 응답하지 않는다.
+- 일반 계단·출입문은 시설 목록에서 뺐다(건물 간 연결계단은 포함).
+
 `POST /api/campus/location-check` 또는 `/api/chats/{id}/location-check`에 latitude, longitude, horizontalAccuracyMeters, measuredAt(ISO 8601)을 보낸다. 오래된 측정은 422, 30초보다 미래 시각/잘못된 좌표는 400, 기준 자료 미등록은 503. 정확도 초과는 LOW_ACCURACY, 오차 범위 전체가 학교 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 경계와 겹치면 UNKNOWN. 응답 카드는 일시적으로 표시하며 원 좌표를 저장하지 않는다.
 
 ## 검증 범위

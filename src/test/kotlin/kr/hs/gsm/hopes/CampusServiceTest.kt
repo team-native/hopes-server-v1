@@ -206,4 +206,33 @@ class CampusServiceTest {
                 """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"A","floors":[{"floor":"1F"},{"floor":"1F"}]}]}""",
             )) assertThrows(IllegalArgumentException::class.java, { service(bad) }, bad)
     }
+
+    @Test
+    fun `registered school reference data loads without coordinates or approved plans`() {
+        val service = service(Files.readString(java.nio.file.Path.of("ops/campus/gsm-campus.json")))
+        val map = service.map()
+        @Suppress("UNCHECKED_CAST")
+        val buildings = map["buildings"] as List<Map<String, Any?>>
+        assertEquals(listOf("본관", "실습동", "금봉관", "동행관"), buildings.map { it["name"] })
+        // No sourced coordinates yet: nothing is invented and location comparison stays unavailable.
+        assertEquals(false, map["locationCheckAvailable"])
+        assertTrue(buildings.all { it["latitude"] == null && it["longitude"] == null })
+        val e =
+            assertThrows(ApiException::class.java) {
+                service.check("t", LocationRequest(35.0, 126.0, 10.0, Instant.now()))
+            }
+        assertEquals(503, e.status.value())
+        // Layout images are not approved for publication yet.
+        assertEquals(false, map["floorPlansAvailable"])
+        for (id in 1L..4L) {
+            val plans = service.plans(id)
+            assertEquals(false, plans["available"])
+            assertEquals("NOT_APPROVED", plans["reason"])
+            assertEquals(emptyList<Any>(), plans["items"])
+        }
+        // Dormitory floors list floor names only.
+        val text = map.toString()
+        assertTrue(text.contains("AI모델링실") && text.contains("빅데이터분석실습실"))
+        assertFalse(text.contains("301") || text.contains("자기주도학습실") || text.contains("사감실"))
+    }
 }
