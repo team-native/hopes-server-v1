@@ -54,7 +54,9 @@ class HopesApiIntegrationTest @Autowired constructor(
             }
             .andReturn()
 
-        val paths = objectMapper.readTree(result.response.contentAsString)["paths"]
+        val spec = objectMapper.readTree(result.response.contentAsString)
+        assertEquals("/", spec["servers"][0]["url"].asText())
+        val paths = spec["paths"]
         val expectedPaths = setOf(
             "/api/signup/email-verifications",
             "/api/signup/email-verifications/confirm",

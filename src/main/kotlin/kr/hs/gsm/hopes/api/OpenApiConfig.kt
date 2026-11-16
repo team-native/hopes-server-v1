@@ -20,8 +20,7 @@ class OpenApiConfig {
         )
         .servers(
             listOf(
-                Server().url("http://ssh.gsmsv.site:25105").description("운영 서버"),
-                Server().url("http://localhost:8080").description("로컬 서버"),
+                Server().url("/").description("현재 접속한 서버"),
             )
         )
         .components(
