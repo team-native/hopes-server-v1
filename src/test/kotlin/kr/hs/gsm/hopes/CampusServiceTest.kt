@@ -5,6 +5,7 @@ import java.nio.file.Files
 import java.time.Instant
 import kr.hs.gsm.hopes.api.ApiException
 import kr.hs.gsm.hopes.domain.ConversationRepository
+import kr.hs.gsm.hopes.feature.CampusFacilityDto
 import kr.hs.gsm.hopes.feature.CampusService
 import kr.hs.gsm.hopes.feature.LocationRequest
 import kr.hs.gsm.hopes.service.RateLimiter
@@ -111,7 +112,9 @@ class CampusServiceTest {
     @Test
     fun `new circle format matches legacy format`() {
         val legacy =
-            service("""{"school":{"id":"t","name":"t","latitude":0,"longitude":0,"radiusMeters":100,"source":"s"}}""")
+            service(
+                """{"school":{"id":"t","name":"t","latitude":0,"longitude":0,"radiusMeters":100,"source":"s"}}"""
+            )
         val circle =
             service(
                 """{"school":{"id":"t","name":"t","boundary":{"type":"CIRCLE","source":"s",
@@ -176,7 +179,10 @@ class CampusServiceTest {
         assertEquals("NOT_REGISTERED", service.plans(3)["reason"])
         assertEquals(false, service.plans(3)["available"])
         // Building-level approval still works (legacy), and a per-plan false overrides it.
-        assertEquals(listOf("d1"), (service.plans(4)["items"] as List<*>).map { (it as Map<*, *>)["id"] })
+        assertEquals(
+            listOf("d1"),
+            (service.plans(4)["items"] as List<*>).map { (it as Map<*, *>)["id"] },
+        )
         assertThrows(ApiException::class.java) { service.plans(99) }
 
         val map = service.map()
@@ -211,10 +217,10 @@ class CampusServiceTest {
     fun `registered school reference data loads without coordinates or approved plans`() {
         val service = service(Files.readString(java.nio.file.Path.of("ops/campus/gsm-campus.json")))
         val map = service.map()
-        @Suppress("UNCHECKED_CAST")
-        val buildings = map["buildings"] as List<Map<String, Any?>>
+        @Suppress("UNCHECKED_CAST") val buildings = map["buildings"] as List<Map<String, Any?>>
         assertEquals(listOf("본관", "실습동", "금봉관", "동행관"), buildings.map { it["name"] })
-        // No sourced coordinates yet: nothing is invented and location comparison stays unavailable.
+        // No sourced coordinates yet: nothing is invented and location comparison stays
+        // unavailable.
         assertEquals(false, map["locationCheckAvailable"])
         assertTrue(buildings.all { it["latitude"] == null && it["longitude"] == null })
         val e =
@@ -234,5 +240,37 @@ class CampusServiceTest {
         val text = map.toString()
         assertTrue(text.contains("AI모델링실") && text.contains("빅데이터분석실습실"))
         assertFalse(text.contains("301") || text.contains("자기주도학습실") || text.contains("사감실"))
+    }
+
+    @Test
+    fun `public facility search filters building floor and keyword without private notes`() {
+        val service =
+            service(
+                """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"본관","floors":[{"floor":"1F","facilities":["성고충상담실/보건실","교무실"],"note":"private note"},{"floor":"3F","facilities":["SECRET_ROOM"],"facilitiesPublic":false}]}]}"""
+            )
+        @Suppress("UNCHECKED_CAST")
+        val rows = service.facilities(" 보건실 ", 1, "1f")["items"] as List<CampusFacilityDto>
+        assertEquals(listOf(CampusFacilityDto(1, "본관", "1F", "성고충상담실/보건실")), rows)
+        assertEquals(0, service.facilities("없는 시설", null, null)["total"])
+        val all = service.facilities(null, null, null).toString()
+        assertFalse(all.contains("SECRET_ROOM") || all.contains("private note"))
+        assertTrue(service.facilityContext("보건실 어디야?").contains("본관 1F: 성고충상담실/보건실"))
+        val context = service.facilityContext("본관 안내")
+        assertFalse(context.contains("SECRET_ROOM") || context.contains("private note"))
+        assertEquals("", service.facilityContext("없는 시설"))
+        assertEquals(
+            400,
+            assertThrows(ApiException::class.java) {
+                    service.facilities("x".repeat(101), null, null)
+                }
+                .status
+                .value(),
+        )
+        assertEquals(
+            404,
+            assertThrows(ApiException::class.java) { service.facilities(null, 99, null) }
+                .status
+                .value(),
+        )
     }
 }

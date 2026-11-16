@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.*
 data class GeoPoint(val latitude: Double, val longitude: Double)
 
 /**
- * 학교 경계. CIRCLE은 center + radiusMeters, POLYGON은 points(3개 이상, 시계/반시계 무관)로 표현한다.
- * 좌표는 출처를 확인할 수 있는 값만 등록하며 source가 비어 있으면 로딩을 거부한다.
+ * 학교 경계. CIRCLE은 center + radiusMeters, POLYGON은 points(3개 이상, 시계/반시계 무관)로 표현한다. 좌표는 출처를 확인할 수 있는
+ * 값만 등록하며 source가 비어 있으면 로딩을 거부한다.
  */
 data class CampusBoundary(
     val type: String,
@@ -32,8 +32,8 @@ data class CampusBoundary(
 )
 
 /**
- * 기존 형식(latitude/longitude/radiusMeters 평면 필드)과 새 boundary 형식을 모두 받는다. 둘 중 하나만 쓸 수 있고, 좌표가
- * 하나도 없으면 지도·시설 조회만 가능하고 위치 비교는 503이다.
+ * 기존 형식(latitude/longitude/radiusMeters 평면 필드)과 새 boundary 형식을 모두 받는다. 둘 중 하나만 쓸 수 있고, 좌표가 하나도 없으면
+ * 지도·시설 조회만 가능하고 위치 비교는 503이다.
  */
 data class SchoolMap(
     val id: String,
@@ -52,13 +52,16 @@ data class SchoolMap(
         require(latitude != null && longitude != null && radiusMeters != null) {
             "school latitude, longitude, radiusMeters를 모두 입력해야 합니다"
         }
-        return CampusBoundary("CIRCLE", GeoPoint(latitude, longitude), radiusMeters, source = source)
+        return CampusBoundary(
+            "CIRCLE",
+            GeoPoint(latitude, longitude),
+            radiusMeters,
+            source = source,
+        )
     }
 }
 
-/**
- * 층별 시설 목록. facilitiesPublic=false(예: 공개 승인 전인 기숙사 층)이면 층 이름만 응답하고 시설 목록은 응답하지 않는다.
- */
+/** 층별 시설 목록. facilitiesPublic=false(예: 공개 승인 전인 기숙사 층)이면 층 이름만 응답하고 시설 목록은 응답하지 않는다. */
 data class CampusFloor(
     val floor: String,
     val facilities: List<String> = emptyList(),
@@ -67,8 +70,8 @@ data class CampusFloor(
 )
 
 /**
- * 도면 한 장. publicationApproved가 없으면 건물의 publicationApproved를 따른다. 승인되지 않은 도면은 URL을 포함해 어떤
- * 정보도 응답하지 않는다. url은 승인된 도면에만 필수다.
+ * 도면 한 장. publicationApproved가 없으면 건물의 publicationApproved를 따른다. 승인되지 않은 도면은 URL을 포함해 어떤 정보도 응답하지
+ * 않는다. url은 승인된 도면에만 필수다.
  */
 data class FloorPlan(
     val id: String,
@@ -101,6 +104,13 @@ data class CampusData(
     val buildings: List<CampusBuilding> = emptyList(),
     val source: String? = null,
     val note: String? = null,
+)
+
+data class CampusFacilityDto(
+    val buildingId: Long,
+    val buildingName: String,
+    val floor: String,
+    val name: String,
 )
 
 data class LocationRequest(
@@ -181,7 +191,7 @@ class CampusService(
     }
 
     private fun registered() =
-        data ?: fail(HttpStatus.SERVICE_UNAVAILABLE, "학교 기준 좌표가 아직 등록되지 않았습니다")
+        data ?: fail(HttpStatus.SERVICE_UNAVAILABLE, "학교 기준 자료가 아직 등록되지 않았습니다")
 
     fun map(): Map<String, Any?> {
         val d = registered()
@@ -201,6 +211,52 @@ class CampusService(
                 },
             "floorPlansAvailable" to d.buildings.any { it.approvedPlans().isNotEmpty() },
         )
+    }
+
+    fun facilities(keyword: String?, buildingId: Long?, floor: String?): Map<String, Any> {
+        if (keyword != null && keyword.length > 100)
+            fail(HttpStatus.BAD_REQUEST, "검색어는 100자 이하여야 합니다")
+        if (floor != null && floor.length > 20) fail(HttpStatus.BAD_REQUEST, "층 이름은 20자 이하여야 합니다")
+        val d = registered()
+        if (buildingId != null && d.buildings.none { it.id == buildingId })
+            fail(HttpStatus.NOT_FOUND, "건물을 찾을 수 없습니다")
+        val word = keyword.orEmpty().trim()
+        val selectedFloor = floor?.trim()?.takeIf { it.isNotEmpty() }
+        val rows =
+            publicFacilities().filter {
+                (buildingId == null || it.buildingId == buildingId) &&
+                    (selectedFloor == null || it.floor.equals(selectedFloor, ignoreCase = true)) &&
+                    (word.isEmpty() ||
+                        it.name.contains(word, ignoreCase = true) ||
+                        it.buildingName.contains(word, ignoreCase = true))
+            }
+        return mapOf("items" to rows, "total" to rows.size)
+    }
+
+    private fun publicFacilities(): List<CampusFacilityDto> =
+        data?.buildings.orEmpty().flatMap { b ->
+            b.floors
+                .filter { it.facilitiesPublic }
+                .flatMap { f ->
+                    f.facilities.distinct().map { CampusFacilityDto(b.id, b.name, f.floor, it) }
+                }
+        }
+
+    /**
+     * Relevant public reference data only; no dormitory details, notes, URLs or device coordinates.
+     */
+    fun facilityContext(question: String): String {
+        val rows =
+            publicFacilities().filter { row ->
+                question.contains(row.buildingName, ignoreCase = true) ||
+                    row.name.split('/').any { name ->
+                        name.length >= 2 && question.contains(name, ignoreCase = true)
+                    }
+            }
+        if (rows.isEmpty()) return ""
+        return "\n[학교 배치도 기준 공개 시설 위치]\n" +
+            rows.joinToString("\n") { "- ${it.buildingName} ${it.floor}: ${it.name}" } +
+            "\n시설 위치는 이 등록 자료를 우선 사용하고, 없는 시설·연결 경로·현재 위치·도면 이미지는 추측하지 마세요."
     }
 
     fun check(email: String, r: LocationRequest): LocationResult {
@@ -298,7 +354,11 @@ class CampusService(
                 boundary?.let { b ->
                     when (geometry) {
                         is CampusGeometry.Polygon ->
-                            mapOf("type" to "POLYGON", "points" to geometry.vertices, "source" to b.source)
+                            mapOf(
+                                "type" to "POLYGON",
+                                "points" to geometry.vertices,
+                                "source" to b.source,
+                            )
                         else ->
                             mapOf(
                                 "type" to "CIRCLE",
@@ -310,7 +370,8 @@ class CampusService(
                 },
         )
 
-    private fun validCoordinates(lat: Double, lon: Double) = CampusGeometry.validCoordinates(lat, lon)
+    private fun validCoordinates(lat: Double, lon: Double) =
+        CampusGeometry.validCoordinates(lat, lon)
 }
 
 @RestController
@@ -319,6 +380,13 @@ class CampusService(
 @SecurityRequirement(name = "bearerAuth")
 class CampusController(private val service: CampusService) {
     @GetMapping("/campus/map") fun map() = service.map()
+
+    @GetMapping("/campus/facilities")
+    fun facilities(
+        @RequestParam(required = false) keyword: String?,
+        @RequestParam(required = false) buildingId: Long?,
+        @RequestParam(required = false) floor: String?,
+    ) = service.facilities(keyword, buildingId, floor)
 
     @PostMapping("/campus/location-check")
     fun check(a: Authentication, @RequestBody r: LocationRequest) = service.check(a.name, r)

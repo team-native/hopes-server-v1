@@ -29,6 +29,7 @@ import java.time.Instant
     properties = [
         "hopes.mail.enabled=false",
         "hopes.ai.enabled=true",
+        "hopes.campus.data-path=ops/campus/gsm-campus.json",
         "hopes.ai.chunks-path=classpath:data/test_rag_chunks.jsonl",
         "hopes.ai.cache-path=./target/ai-test/embeddings_cache.json",
         "hopes.rate-limit.messages-per-minute=3",
@@ -285,4 +286,32 @@ class HopesAiIntegrationTest @Autowired constructor(
         }.andExpect { status { isCreated() } }.andReturn()
         return objectMapper.readTree(result.response.contentAsString)["id"].asLong()
     }
+    @Test
+    fun `public campus facilities are searchable and supplied as chat evidence`() {
+        mockMvc.get("/api/campus/facilities").andExpect { status { isUnauthorized() } }
+        val token = signupAndToken("ai-facility@gsm.hs.kr", "ai-facility")
+        mockMvc.get("/api/campus/facilities") {
+            header("Authorization", token)
+            param("keyword", "보건실")
+            param("buildingId", "1")
+            param("floor", "1F")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items[0].buildingName") { value("본관") }
+            jsonPath("$.items[0].floor") { value("1F") }
+        }
+        val result = mockMvc.post("/api/chats") {
+            header("Authorization", token)
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect { status { isCreated() } }.andReturn()
+        val id = objectMapper.readTree(result.response.contentAsString)["id"].asLong()
+        mockMvc.post("/api/chats/$id/messages") {
+            header("Authorization", token)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"보건실 어디야?"}"""
+        }.andExpect { status { isOk() } }
+        assertTrue(gemini.systemPrompts.last().contains("본관 1F: 성고충상담실/보건실"))
+    }
+
 }
