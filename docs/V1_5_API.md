@@ -103,7 +103,14 @@ buildings: [{ id, name, latitude, longitude, publicationApproved, floorPlans: [
 ]}]
 ```
 
-학교 경계는 등록 중심점과 반경으로 표현한다. 확정 측량 경계가 필요하면 polygon 모델로 확장해야 한다. 도면은 공개 승인이 있고 파일이 등록돼야 제공하며 없으면 available=false/items=[]/NOT_REGISTERED다. 현재 층을 알아내는 기능은 없다.
+학교 경계는 `school.boundary`로 등록한다. 기존 평면 형식(`school.latitude/longitude/radiusMeters`)도 그대로 읽어 같은 원형 경계로 처리한다. 두 형식을 함께 쓰면 시작 시 거부한다.
+
+```text
+boundary: { type: "CIRCLE", center: { latitude, longitude }, radiusMeters, source }
+boundary: { type: "POLYGON", points: [{ latitude, longitude }, ...], source }
+```
+
+좌표는 출처를 확인할 수 있는 값만 등록하며 `source`(boundary 또는 school)가 비어 있으면 시작 시 거부한다. POLYGON은 서로 다른 꼭짓점 3개 이상, 면적이 있고 변이 교차하지 않아야 한다(첫 점을 마지막에 반복해도 된다). 다각형 판정은 측정 위치 기준 국소 평면에서 ray casting으로 안팎을 구하고, 가장 가까운 변까지의 거리와 GPS 오차를 비교한다. 원형과 같은 규칙으로 오차 범위 전체가 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 겹치면 UNKNOWN이다. 경계 좌표가 없는 자료도 로딩할 수 있으며, 이때 지도 응답은 `locationCheckAvailable=false`이고 위치 비교만 503이다. 도면은 공개 승인이 있고 파일이 등록돼야 제공하며 없으면 available=false/items=[]/NOT_REGISTERED다. 현재 층을 알아내는 기능은 없다.
 
 `POST /api/campus/location-check` 또는 `/api/chats/{id}/location-check`에 latitude, longitude, horizontalAccuracyMeters, measuredAt(ISO 8601)을 보낸다. 오래된 측정은 422, 30초보다 미래 시각/잘못된 좌표는 400, 기준 자료 미등록은 503. 정확도 초과는 LOW_ACCURACY, 오차 범위 전체가 학교 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 경계와 겹치면 UNKNOWN. 응답 카드는 일시적으로 표시하며 원 좌표를 저장하지 않는다.
 

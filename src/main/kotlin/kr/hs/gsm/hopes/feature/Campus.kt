@@ -8,7 +8,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
-import kotlin.math.*
 import kr.hs.gsm.hopes.domain.ConversationRepository
 import kr.hs.gsm.hopes.service.RateLimiter
 import kr.hs.gsm.hopes.service.UserService
@@ -18,15 +17,43 @@ import org.springframework.security.core.Authentication
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.*
 
+data class GeoPoint(val latitude: Double, val longitude: Double)
+
+/**
+ * 학교 경계. CIRCLE은 center + radiusMeters, POLYGON은 points(3개 이상, 시계/반시계 무관)로 표현한다.
+ * 좌표는 출처를 확인할 수 있는 값만 등록하며 source가 비어 있으면 로딩을 거부한다.
+ */
+data class CampusBoundary(
+    val type: String,
+    val center: GeoPoint? = null,
+    val radiusMeters: Double? = null,
+    val points: List<GeoPoint> = emptyList(),
+    val source: String? = null,
+)
+
+/**
+ * 기존 형식(latitude/longitude/radiusMeters 평면 필드)과 새 boundary 형식을 모두 받는다. 둘 중 하나만 쓸 수 있고, 좌표가
+ * 하나도 없으면 지도·시설 조회만 가능하고 위치 비교는 503이다.
+ */
 data class SchoolMap(
     val id: String,
     val name: String,
-    val latitude: Double,
-    val longitude: Double,
-    val radiusMeters: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val radiusMeters: Double? = null,
+    val boundary: CampusBoundary? = null,
+    val source: String? = null,
 ) {
-    val boundary: Map<String, Any>
-        get() = mapOf("type" to "CIRCLE", "radiusMeters" to radiusMeters)
+    internal fun resolvedBoundary(): CampusBoundary? {
+        val legacy = latitude != null || longitude != null || radiusMeters != null
+        require(!(legacy && boundary != null)) { "school 평면 좌표와 boundary는 함께 쓸 수 없습니다" }
+        if (boundary != null) return boundary.copy(source = boundary.source ?: source)
+        if (!legacy) return null
+        require(latitude != null && longitude != null && radiusMeters != null) {
+            "school latitude, longitude, radiusMeters를 모두 입력해야 합니다"
+        }
+        return CampusBoundary("CIRCLE", GeoPoint(latitude, longitude), radiusMeters, source = source)
+    }
 }
 
 data class FloorPlan(
@@ -87,14 +114,12 @@ class CampusService(
                 }
             }
 
+    private val boundary: CampusBoundary? = data?.school?.resolvedBoundary()
+    private val geometry: CampusGeometry? = boundary?.let { CampusGeometry.from(it) }
+
     init {
         require(maxAccuracy.isFinite() && maxAccuracy > 0 && maxAge > 0)
         data?.let { d ->
-            require(
-                validCoordinates(d.school.latitude, d.school.longitude) &&
-                    d.school.radiusMeters.isFinite() &&
-                    d.school.radiusMeters > 0
-            )
             require(d.buildings.map { it.id }.distinct().size == d.buildings.size)
             d.buildings.forEach { b ->
                 require(b.id > 0 && validCoordinates(b.latitude, b.longitude))
@@ -106,10 +131,11 @@ class CampusService(
     private fun registered() =
         data ?: fail(HttpStatus.SERVICE_UNAVAILABLE, "학교 기준 좌표가 아직 등록되지 않았습니다")
 
-    fun map(): Map<String, Any> {
+    fun map(): Map<String, Any?> {
         val d = registered()
         return mapOf(
-            "school" to d.school,
+            "school" to schoolView(d.school),
+            "locationCheckAvailable" to (geometry != null),
             "buildings" to
                 d.buildings.map {
                     mapOf(
@@ -136,12 +162,15 @@ class CampusService(
         if (age < -30) fail(HttpStatus.BAD_REQUEST, "미래 측정 시각입니다")
         if (age > maxAge) fail(HttpStatus.UNPROCESSABLE_ENTITY, "위치를 다시 측정해주세요")
         val d = registered()
-        val distance = distance(r.latitude, r.longitude, d.school.latitude, d.school.longitude)
+        val g = geometry ?: fail(HttpStatus.SERVICE_UNAVAILABLE, "학교 기준 좌표가 아직 등록되지 않았습니다")
+        // 측정 좌표는 이 지역 변수 안에서만 쓰고 저장·로그·대화로 넘기지 않는다.
+        val relation = g.relate(GeoPoint(r.latitude, r.longitude))
+        val acc = r.horizontalAccuracyMeters
         val status =
             when {
-                r.horizontalAccuracyMeters > maxAccuracy -> "LOW_ACCURACY"
-                distance - r.horizontalAccuracyMeters > d.school.radiusMeters -> "OUTSIDE"
-                distance + r.horizontalAccuracyMeters <= d.school.radiusMeters -> "NEAR_SCHOOL"
+                acc > maxAccuracy -> "LOW_ACCURACY"
+                !relation.inside && relation.marginMeters > acc -> "OUTSIDE"
+                relation.inside && relation.marginMeters >= acc -> "NEAR_SCHOOL"
                 else -> "UNKNOWN"
             }
         val message =
@@ -179,17 +208,30 @@ class CampusService(
         )
     }
 
-    private fun validCoordinates(lat: Double, lon: Double) =
-        lat.isFinite() && lon.isFinite() && lat in -90.0..90.0 && lon in -180.0..180.0
+    private fun schoolView(s: SchoolMap): Map<String, Any?> =
+        mapOf(
+            "id" to s.id,
+            "name" to s.name,
+            "latitude" to (boundary?.center?.latitude ?: s.latitude),
+            "longitude" to (boundary?.center?.longitude ?: s.longitude),
+            "radiusMeters" to boundary?.radiusMeters,
+            "boundary" to
+                boundary?.let { b ->
+                    when (geometry) {
+                        is CampusGeometry.Polygon ->
+                            mapOf("type" to "POLYGON", "points" to geometry.vertices, "source" to b.source)
+                        else ->
+                            mapOf(
+                                "type" to "CIRCLE",
+                                "center" to b.center,
+                                "radiusMeters" to b.radiusMeters,
+                                "source" to b.source,
+                            )
+                    }
+                },
+        )
 
-    private fun distance(lat: Double, lon: Double, lat2: Double, lon2: Double): Double {
-        val dLat = Math.toRadians(lat2 - lat)
-        val dLon = Math.toRadians(lon2 - lon)
-        val a =
-            sin(dLat / 2).pow(2) +
-                cos(Math.toRadians(lat)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
-        return 6371000.0 * 2 * atan2(sqrt(a.coerceIn(0.0, 1.0)), sqrt((1 - a).coerceIn(0.0, 1.0)))
-    }
+    private fun validCoordinates(lat: Double, lon: Double) = CampusGeometry.validCoordinates(lat, lon)
 }
 
 @RestController
