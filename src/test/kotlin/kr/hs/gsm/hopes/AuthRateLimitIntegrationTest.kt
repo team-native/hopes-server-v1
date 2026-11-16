@@ -3,6 +3,11 @@ package kr.hs.gsm.hopes
 import kr.hs.gsm.hopes.domain.User
 import kr.hs.gsm.hopes.domain.UserRepository
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.AfterEach
+import java.time.Instant
+import org.mockito.MockedStatic
+import org.mockito.Mockito
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
@@ -29,6 +34,18 @@ class AuthRateLimitIntegrationTest @Autowired constructor(
     private val users: UserRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
+    private lateinit var clock: MockedStatic<Instant>
+
+    @BeforeEach
+    fun freezeTimeWithinEachRateLimitWindow() {
+        val now = Instant.now()
+        clock = Mockito.mockStatic(Instant::class.java, Mockito.CALLS_REAL_METHODS)
+        clock.`when`<Instant> { Instant.now() }.thenReturn(now)
+    }
+
+    @AfterEach
+    fun releaseClock() = clock.close()
+
     @Test
     fun `회원가입 인증메일을 너무 자주 요청하면 429를 반환한다`() {
         val body = """{"email":"rate-signup@gsm.hs.kr"}"""
