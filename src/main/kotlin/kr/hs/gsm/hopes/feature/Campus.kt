@@ -8,7 +8,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
-import kotlin.math.*
 import kr.hs.gsm.hopes.domain.ConversationRepository
 import kr.hs.gsm.hopes.service.RateLimiter
 import kr.hs.gsm.hopes.service.UserService
@@ -18,35 +17,91 @@ import org.springframework.security.core.Authentication
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.*
 
+data class GeoPoint(val latitude: Double, val longitude: Double)
+
+/**
+ * 학교 경계. CIRCLE은 center + radiusMeters, POLYGON은 points(3개 이상, 시계/반시계 무관)로 표현한다.
+ * 좌표는 출처를 확인할 수 있는 값만 등록하며 source가 비어 있으면 로딩을 거부한다.
+ */
+data class CampusBoundary(
+    val type: String,
+    val center: GeoPoint? = null,
+    val radiusMeters: Double? = null,
+    val points: List<GeoPoint> = emptyList(),
+    val source: String? = null,
+)
+
+/**
+ * 기존 형식(latitude/longitude/radiusMeters 평면 필드)과 새 boundary 형식을 모두 받는다. 둘 중 하나만 쓸 수 있고, 좌표가
+ * 하나도 없으면 지도·시설 조회만 가능하고 위치 비교는 503이다.
+ */
 data class SchoolMap(
     val id: String,
     val name: String,
-    val latitude: Double,
-    val longitude: Double,
-    val radiusMeters: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val radiusMeters: Double? = null,
+    val boundary: CampusBoundary? = null,
+    val source: String? = null,
 ) {
-    val boundary: Map<String, Any>
-        get() = mapOf("type" to "CIRCLE", "radiusMeters" to radiusMeters)
+    internal fun resolvedBoundary(): CampusBoundary? {
+        val legacy = latitude != null || longitude != null || radiusMeters != null
+        require(!(legacy && boundary != null)) { "school 평면 좌표와 boundary는 함께 쓸 수 없습니다" }
+        if (boundary != null) return boundary.copy(source = boundary.source ?: source)
+        if (!legacy) return null
+        require(latitude != null && longitude != null && radiusMeters != null) {
+            "school latitude, longitude, radiusMeters를 모두 입력해야 합니다"
+        }
+        return CampusBoundary("CIRCLE", GeoPoint(latitude, longitude), radiusMeters, source = source)
+    }
 }
 
+/**
+ * 층별 시설 목록. facilitiesPublic=false(예: 공개 승인 전인 기숙사 층)이면 층 이름만 응답하고 시설 목록은 응답하지 않는다.
+ */
+data class CampusFloor(
+    val floor: String,
+    val facilities: List<String> = emptyList(),
+    val facilitiesPublic: Boolean = true,
+    val note: String? = null,
+)
+
+/**
+ * 도면 한 장. publicationApproved가 없으면 건물의 publicationApproved를 따른다. 승인되지 않은 도면은 URL을 포함해 어떤
+ * 정보도 응답하지 않는다. url은 승인된 도면에만 필수다.
+ */
 data class FloorPlan(
     val id: String,
     val floor: String,
     val label: String,
-    val url: String,
+    val url: String? = null,
     val facilities: List<String> = emptyList(),
+    val publicationApproved: Boolean? = null,
+    val source: String? = null,
 )
 
 data class CampusBuilding(
     val id: Long,
     val name: String,
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val coordinateSource: String? = null,
     val publicationApproved: Boolean = false,
+    val floors: List<CampusFloor> = emptyList(),
     val floorPlans: List<FloorPlan> = emptyList(),
-)
+    val source: String? = null,
+) {
+    internal fun approved(plan: FloorPlan) = plan.publicationApproved ?: publicationApproved
 
-data class CampusData(val school: SchoolMap, val buildings: List<CampusBuilding> = emptyList())
+    internal fun approvedPlans() = floorPlans.filter { approved(it) }
+}
+
+data class CampusData(
+    val school: SchoolMap,
+    val buildings: List<CampusBuilding> = emptyList(),
+    val source: String? = null,
+    val note: String? = null,
+)
 
 data class LocationRequest(
     val latitude: Double,
@@ -87,18 +142,40 @@ class CampusService(
                 }
             }
 
+    private val boundary: CampusBoundary? = data?.school?.resolvedBoundary()
+    private val geometry: CampusGeometry? = boundary?.let { CampusGeometry.from(it) }
+
     init {
         require(maxAccuracy.isFinite() && maxAccuracy > 0 && maxAge > 0)
         data?.let { d ->
-            require(
-                validCoordinates(d.school.latitude, d.school.longitude) &&
-                    d.school.radiusMeters.isFinite() &&
-                    d.school.radiusMeters > 0
-            )
             require(d.buildings.map { it.id }.distinct().size == d.buildings.size)
             d.buildings.forEach { b ->
-                require(b.id > 0 && validCoordinates(b.latitude, b.longitude))
-                require(b.floorPlans.all { it.url.startsWith("https://") })
+                require(b.id > 0 && b.name.isNotBlank()) { "건물 id/name을 확인해주세요" }
+                require((b.latitude == null) == (b.longitude == null)) {
+                    "건물 ${b.id}: latitude와 longitude는 함께 입력해야 합니다"
+                }
+                if (b.latitude != null && b.longitude != null) {
+                    require(validCoordinates(b.latitude, b.longitude)) { "건물 ${b.id}: 잘못된 좌표입니다" }
+                    require(!b.coordinateSource.isNullOrBlank()) {
+                        "건물 ${b.id}: 좌표 출처(coordinateSource)가 필요합니다"
+                    }
+                }
+                val floorNames = b.floors.map { it.floor }
+                require(floorNames.distinct().size == floorNames.size) { "건물 ${b.id}: 층이 중복됩니다" }
+                require(b.floorPlans.map { it.id }.distinct().size == b.floorPlans.size) {
+                    "건물 ${b.id}: 도면 id가 중복됩니다"
+                }
+                b.floorPlans.forEach { plan ->
+                    require(plan.url == null || plan.url.startsWith("https://")) {
+                        "도면 ${plan.id}: url은 HTTPS여야 합니다"
+                    }
+                    require(!b.approved(plan) || plan.url != null) {
+                        "도면 ${plan.id}: 공개 승인된 도면에는 url이 필요합니다"
+                    }
+                    require(floorNames.isEmpty() || plan.floor in floorNames) {
+                        "도면 ${plan.id}: 등록되지 않은 층(${plan.floor})입니다"
+                    }
+                }
             }
         }
     }
@@ -106,10 +183,11 @@ class CampusService(
     private fun registered() =
         data ?: fail(HttpStatus.SERVICE_UNAVAILABLE, "학교 기준 좌표가 아직 등록되지 않았습니다")
 
-    fun map(): Map<String, Any> {
+    fun map(): Map<String, Any?> {
         val d = registered()
         return mapOf(
-            "school" to d.school,
+            "school" to schoolView(d.school),
+            "locationCheckAvailable" to (geometry != null),
             "buildings" to
                 d.buildings.map {
                     mapOf(
@@ -117,10 +195,11 @@ class CampusService(
                         "name" to it.name,
                         "latitude" to it.latitude,
                         "longitude" to it.longitude,
+                        "floors" to it.floors.map(::floorView),
+                        "floorPlansAvailable" to it.approvedPlans().isNotEmpty(),
                     )
                 },
-            "floorPlansAvailable" to
-                d.buildings.any { it.publicationApproved && it.floorPlans.isNotEmpty() },
+            "floorPlansAvailable" to d.buildings.any { it.approvedPlans().isNotEmpty() },
         )
     }
 
@@ -136,12 +215,15 @@ class CampusService(
         if (age < -30) fail(HttpStatus.BAD_REQUEST, "미래 측정 시각입니다")
         if (age > maxAge) fail(HttpStatus.UNPROCESSABLE_ENTITY, "위치를 다시 측정해주세요")
         val d = registered()
-        val distance = distance(r.latitude, r.longitude, d.school.latitude, d.school.longitude)
+        val g = geometry ?: fail(HttpStatus.SERVICE_UNAVAILABLE, "학교 기준 좌표가 아직 등록되지 않았습니다")
+        // 측정 좌표는 이 지역 변수 안에서만 쓰고 저장·로그·대화로 넘기지 않는다.
+        val relation = g.relate(GeoPoint(r.latitude, r.longitude))
+        val acc = r.horizontalAccuracyMeters
         val status =
             when {
-                r.horizontalAccuracyMeters > maxAccuracy -> "LOW_ACCURACY"
-                distance - r.horizontalAccuracyMeters > d.school.radiusMeters -> "OUTSIDE"
-                distance + r.horizontalAccuracyMeters <= d.school.radiusMeters -> "NEAR_SCHOOL"
+                acc > maxAccuracy -> "LOW_ACCURACY"
+                !relation.inside && relation.marginMeters > acc -> "OUTSIDE"
+                relation.inside && relation.marginMeters >= acc -> "NEAR_SCHOOL"
                 else -> "UNKNOWN"
             }
         val message =
@@ -155,7 +237,7 @@ class CampusService(
             status,
             r.horizontalAccuracyMeters,
             message,
-            d.buildings.any { it.publicationApproved && it.floorPlans.isNotEmpty() },
+            d.buildings.any { it.approvedPlans().isNotEmpty() },
         )
     }
 
@@ -170,26 +252,65 @@ class CampusService(
         val b =
             registered().buildings.find { it.id == id }
                 ?: fail(HttpStatus.NOT_FOUND, "건물을 찾을 수 없습니다")
-        if (b.floorPlans.isNotEmpty() && !b.publicationApproved)
-            fail(HttpStatus.FORBIDDEN, "공개 승인되지 않은 도면입니다")
+        // 공개 승인되지 않은 도면은 개수·층·URL을 포함해 아무것도 응답하지 않는다.
+        val approved = b.approvedPlans()
+        val floors = b.floors.associateBy { it.floor }
         return mapOf(
-            "available" to b.floorPlans.isNotEmpty(),
-            "items" to b.floorPlans,
-            "reason" to if (b.floorPlans.isEmpty()) "NOT_REGISTERED" else "AVAILABLE",
+            "available" to approved.isNotEmpty(),
+            "items" to
+                approved.map { plan ->
+                    val floor = floors[plan.floor]
+                    mapOf(
+                        "id" to plan.id,
+                        "floor" to plan.floor,
+                        "label" to plan.label,
+                        "url" to plan.url,
+                        "facilities" to
+                            plan.facilities.ifEmpty {
+                                floor?.takeIf { it.facilitiesPublic }?.facilities ?: emptyList()
+                            },
+                    )
+                },
+            "reason" to
+                when {
+                    approved.isNotEmpty() -> "AVAILABLE"
+                    b.floorPlans.isNotEmpty() -> "NOT_APPROVED"
+                    else -> "NOT_REGISTERED"
+                },
         )
     }
 
-    private fun validCoordinates(lat: Double, lon: Double) =
-        lat.isFinite() && lon.isFinite() && lat in -90.0..90.0 && lon in -180.0..180.0
+    private fun floorView(f: CampusFloor): Map<String, Any?> =
+        mapOf(
+            "floor" to f.floor,
+            "facilitiesPublic" to f.facilitiesPublic,
+            "facilities" to if (f.facilitiesPublic) f.facilities else emptyList(),
+        )
 
-    private fun distance(lat: Double, lon: Double, lat2: Double, lon2: Double): Double {
-        val dLat = Math.toRadians(lat2 - lat)
-        val dLon = Math.toRadians(lon2 - lon)
-        val a =
-            sin(dLat / 2).pow(2) +
-                cos(Math.toRadians(lat)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
-        return 6371000.0 * 2 * atan2(sqrt(a.coerceIn(0.0, 1.0)), sqrt((1 - a).coerceIn(0.0, 1.0)))
-    }
+    private fun schoolView(s: SchoolMap): Map<String, Any?> =
+        mapOf(
+            "id" to s.id,
+            "name" to s.name,
+            "latitude" to (boundary?.center?.latitude ?: s.latitude),
+            "longitude" to (boundary?.center?.longitude ?: s.longitude),
+            "radiusMeters" to boundary?.radiusMeters,
+            "boundary" to
+                boundary?.let { b ->
+                    when (geometry) {
+                        is CampusGeometry.Polygon ->
+                            mapOf("type" to "POLYGON", "points" to geometry.vertices, "source" to b.source)
+                        else ->
+                            mapOf(
+                                "type" to "CIRCLE",
+                                "center" to b.center,
+                                "radiusMeters" to b.radiusMeters,
+                                "source" to b.source,
+                            )
+                    }
+                },
+        )
+
+    private fun validCoordinates(lat: Double, lon: Double) = CampusGeometry.validCoordinates(lat, lon)
 }
 
 @RestController
