@@ -56,24 +56,52 @@ data class SchoolMap(
     }
 }
 
+/**
+ * 층별 시설 목록. facilitiesPublic=false(예: 공개 승인 전인 기숙사 층)이면 층 이름만 응답하고 시설 목록은 응답하지 않는다.
+ */
+data class CampusFloor(
+    val floor: String,
+    val facilities: List<String> = emptyList(),
+    val facilitiesPublic: Boolean = true,
+    val note: String? = null,
+)
+
+/**
+ * 도면 한 장. publicationApproved가 없으면 건물의 publicationApproved를 따른다. 승인되지 않은 도면은 URL을 포함해 어떤
+ * 정보도 응답하지 않는다. url은 승인된 도면에만 필수다.
+ */
 data class FloorPlan(
     val id: String,
     val floor: String,
     val label: String,
-    val url: String,
+    val url: String? = null,
     val facilities: List<String> = emptyList(),
+    val publicationApproved: Boolean? = null,
+    val source: String? = null,
 )
 
 data class CampusBuilding(
     val id: Long,
     val name: String,
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val coordinateSource: String? = null,
     val publicationApproved: Boolean = false,
+    val floors: List<CampusFloor> = emptyList(),
     val floorPlans: List<FloorPlan> = emptyList(),
-)
+    val source: String? = null,
+) {
+    internal fun approved(plan: FloorPlan) = plan.publicationApproved ?: publicationApproved
 
-data class CampusData(val school: SchoolMap, val buildings: List<CampusBuilding> = emptyList())
+    internal fun approvedPlans() = floorPlans.filter { approved(it) }
+}
+
+data class CampusData(
+    val school: SchoolMap,
+    val buildings: List<CampusBuilding> = emptyList(),
+    val source: String? = null,
+    val note: String? = null,
+)
 
 data class LocationRequest(
     val latitude: Double,
@@ -122,8 +150,32 @@ class CampusService(
         data?.let { d ->
             require(d.buildings.map { it.id }.distinct().size == d.buildings.size)
             d.buildings.forEach { b ->
-                require(b.id > 0 && validCoordinates(b.latitude, b.longitude))
-                require(b.floorPlans.all { it.url.startsWith("https://") })
+                require(b.id > 0 && b.name.isNotBlank()) { "건물 id/name을 확인해주세요" }
+                require((b.latitude == null) == (b.longitude == null)) {
+                    "건물 ${b.id}: latitude와 longitude는 함께 입력해야 합니다"
+                }
+                if (b.latitude != null && b.longitude != null) {
+                    require(validCoordinates(b.latitude, b.longitude)) { "건물 ${b.id}: 잘못된 좌표입니다" }
+                    require(!b.coordinateSource.isNullOrBlank()) {
+                        "건물 ${b.id}: 좌표 출처(coordinateSource)가 필요합니다"
+                    }
+                }
+                val floorNames = b.floors.map { it.floor }
+                require(floorNames.distinct().size == floorNames.size) { "건물 ${b.id}: 층이 중복됩니다" }
+                require(b.floorPlans.map { it.id }.distinct().size == b.floorPlans.size) {
+                    "건물 ${b.id}: 도면 id가 중복됩니다"
+                }
+                b.floorPlans.forEach { plan ->
+                    require(plan.url == null || plan.url.startsWith("https://")) {
+                        "도면 ${plan.id}: url은 HTTPS여야 합니다"
+                    }
+                    require(!b.approved(plan) || plan.url != null) {
+                        "도면 ${plan.id}: 공개 승인된 도면에는 url이 필요합니다"
+                    }
+                    require(floorNames.isEmpty() || plan.floor in floorNames) {
+                        "도면 ${plan.id}: 등록되지 않은 층(${plan.floor})입니다"
+                    }
+                }
             }
         }
     }
@@ -143,10 +195,11 @@ class CampusService(
                         "name" to it.name,
                         "latitude" to it.latitude,
                         "longitude" to it.longitude,
+                        "floors" to it.floors.map(::floorView),
+                        "floorPlansAvailable" to it.approvedPlans().isNotEmpty(),
                     )
                 },
-            "floorPlansAvailable" to
-                d.buildings.any { it.publicationApproved && it.floorPlans.isNotEmpty() },
+            "floorPlansAvailable" to d.buildings.any { it.approvedPlans().isNotEmpty() },
         )
     }
 
@@ -184,7 +237,7 @@ class CampusService(
             status,
             r.horizontalAccuracyMeters,
             message,
-            d.buildings.any { it.publicationApproved && it.floorPlans.isNotEmpty() },
+            d.buildings.any { it.approvedPlans().isNotEmpty() },
         )
     }
 
@@ -199,14 +252,40 @@ class CampusService(
         val b =
             registered().buildings.find { it.id == id }
                 ?: fail(HttpStatus.NOT_FOUND, "건물을 찾을 수 없습니다")
-        if (b.floorPlans.isNotEmpty() && !b.publicationApproved)
-            fail(HttpStatus.FORBIDDEN, "공개 승인되지 않은 도면입니다")
+        // 공개 승인되지 않은 도면은 개수·층·URL을 포함해 아무것도 응답하지 않는다.
+        val approved = b.approvedPlans()
+        val floors = b.floors.associateBy { it.floor }
         return mapOf(
-            "available" to b.floorPlans.isNotEmpty(),
-            "items" to b.floorPlans,
-            "reason" to if (b.floorPlans.isEmpty()) "NOT_REGISTERED" else "AVAILABLE",
+            "available" to approved.isNotEmpty(),
+            "items" to
+                approved.map { plan ->
+                    val floor = floors[plan.floor]
+                    mapOf(
+                        "id" to plan.id,
+                        "floor" to plan.floor,
+                        "label" to plan.label,
+                        "url" to plan.url,
+                        "facilities" to
+                            plan.facilities.ifEmpty {
+                                floor?.takeIf { it.facilitiesPublic }?.facilities ?: emptyList()
+                            },
+                    )
+                },
+            "reason" to
+                when {
+                    approved.isNotEmpty() -> "AVAILABLE"
+                    b.floorPlans.isNotEmpty() -> "NOT_APPROVED"
+                    else -> "NOT_REGISTERED"
+                },
         )
     }
+
+    private fun floorView(f: CampusFloor): Map<String, Any?> =
+        mapOf(
+            "floor" to f.floor,
+            "facilitiesPublic" to f.facilitiesPublic,
+            "facilities" to if (f.facilitiesPublic) f.facilities else emptyList(),
+        )
 
     private fun schoolView(s: SchoolMap): Map<String, Any?> =
         mapOf(

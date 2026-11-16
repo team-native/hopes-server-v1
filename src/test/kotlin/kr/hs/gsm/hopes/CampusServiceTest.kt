@@ -20,7 +20,7 @@ class CampusServiceTest {
         // Synthetic test coordinates only, not the school's surveyed location.
         Files.writeString(
             file,
-            """{"school":{"id":"test","name":"test","latitude":0,"longitude":0,"radiusMeters":100,"source":"synthetic test"},"buildings":[{"id":1,"name":"test","latitude":0,"longitude":0}]}""",
+            """{"school":{"id":"test","name":"test","latitude":0,"longitude":0,"radiusMeters":100,"source":"synthetic test"},"buildings":[{"id":1,"name":"test","latitude":0,"longitude":0,"coordinateSource":"synthetic test"}]}""",
         )
         try {
             val users = mock(UserService::class.java)
@@ -142,6 +142,68 @@ class CampusServiceTest {
                 """{"school":{"id":"t","name":"t","boundary":{"type":"POLYGON","source":"s","points":[{"latitude":0,"longitude":0},{"latitude":0.001,"longitude":0.001},{"latitude":0,"longitude":0.001},{"latitude":0.001,"longitude":0}]}}}""",
                 // Legacy fields and boundary together
                 """{"school":{"id":"t","name":"t","latitude":0,"longitude":0,"radiusMeters":1,"source":"s","boundary":{"type":"CIRCLE","source":"s","center":{"latitude":0,"longitude":0},"radiusMeters":1}}}""",
+            )) assertThrows(IllegalArgumentException::class.java, { service(bad) }, bad)
+    }
+
+    @Test
+    fun `floor plans are withheld unless approved and restricted floors hide facilities`() {
+        val service =
+            service(
+                """{"school":{"id":"t","name":"t"},"buildings":[
+                {"id":1,"name":"A","floors":[{"floor":"1F","facilities":["lab"]},
+                  {"floor":"3F","facilities":["dorm 301"],"facilitiesPublic":false}],
+                 "floorPlans":[{"id":"a1","floor":"1F","label":"A 1F","url":"https://example.com/a1.png","publicationApproved":true},
+                  {"id":"a3","floor":"3F","label":"A 3F","url":"https://example.com/secret-a3.png"}]},
+                {"id":2,"name":"B","floors":[{"floor":"1F","facilities":["hall"]}],
+                 "floorPlans":[{"id":"b1","floor":"1F","label":"B 1F"}]},
+                {"id":3,"name":"C"},
+                {"id":4,"name":"D","publicationApproved":true,
+                 "floorPlans":[{"id":"d1","floor":"1F","label":"D 1F","url":"https://example.com/d1.png"},
+                  {"id":"d2","floor":"2F","label":"D 2F","url":"https://example.com/d2.png","publicationApproved":false}]}]}"""
+            )
+        val a = service.plans(1)
+        assertEquals(true, a["available"])
+        assertEquals("AVAILABLE", a["reason"])
+        val items = a["items"] as List<*>
+        assertEquals(1, items.size)
+        assertEquals(listOf("lab"), (items[0] as Map<*, *>)["facilities"])
+        assertFalse(a.toString().contains("secret-a3"))
+
+        val b = service.plans(2)
+        assertEquals(false, b["available"])
+        assertEquals("NOT_APPROVED", b["reason"])
+        assertEquals(emptyList<Any>(), b["items"])
+        assertEquals("NOT_REGISTERED", service.plans(3)["reason"])
+        assertEquals(false, service.plans(3)["available"])
+        // Building-level approval still works (legacy), and a per-plan false overrides it.
+        assertEquals(listOf("d1"), (service.plans(4)["items"] as List<*>).map { (it as Map<*, *>)["id"] })
+        assertThrows(ApiException::class.java) { service.plans(99) }
+
+        val map = service.map()
+        assertFalse(map.toString().contains("dorm 301"))
+        assertFalse(map.toString().contains("secret-a3"))
+        assertTrue(map.toString().contains("lab"))
+        assertEquals(true, map["floorPlansAvailable"])
+        // Without a boundary the location check is unavailable but map/plans still work.
+        assertEquals(false, map["locationCheckAvailable"])
+    }
+
+    @Test
+    fun `invalid building reference data is rejected at startup`() {
+        for (bad in
+            listOf(
+                // Approved plan without URL
+                """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"A","floorPlans":[{"id":"p","floor":"1F","label":"x","publicationApproved":true}]}]}""",
+                // Non-HTTPS URL
+                """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"A","floorPlans":[{"id":"p","floor":"1F","label":"x","url":"http://x"}]}]}""",
+                // Plan for an unregistered floor
+                """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"A","floors":[{"floor":"1F"}],"floorPlans":[{"id":"p","floor":"9F","label":"x"}]}]}""",
+                // Building coordinates without source
+                """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"A","latitude":0,"longitude":0}]}""",
+                // Only one of latitude/longitude
+                """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"A","latitude":0,"coordinateSource":"s"}]}""",
+                // Duplicate floor
+                """{"school":{"id":"t","name":"t"},"buildings":[{"id":1,"name":"A","floors":[{"floor":"1F"},{"floor":"1F"}]}]}""",
             )) assertThrows(IllegalArgumentException::class.java, { service(bad) }, bad)
     }
 }

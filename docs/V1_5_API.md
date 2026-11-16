@@ -97,11 +97,15 @@ Swagger UI는 `/swagger-ui/index.html`, OpenAPI JSON은 `/v3/api-docs`에서 확
 `CAMPUS_DATA_PATH`의 로컬 JSON 파일에 검증된 정적 자료를 등록한다. 실제 좌표를 임의로 넣지 않았다. 구조:
 
 ```text
-school: { id, name, latitude, longitude, radiusMeters }
-buildings: [{ id, name, latitude, longitude, publicationApproved, floorPlans: [
-  { id, floor, label, url: HTTPS URL, facilities: [시설명] }
-]}]
+source, note
+school: { id, name, boundary?, source? }            # 또는 기존 latitude/longitude/radiusMeters
+buildings: [{ id, name, latitude?, longitude?, coordinateSource?, publicationApproved, source?,
+  floors: [{ floor, facilities: [시설명], facilitiesPublic, note? }],
+  floorPlans: [{ id, floor, label, url?: HTTPS URL, facilities?, publicationApproved?, source? }]
+}]
 ```
+
+건물 좌표는 선택이며, 넣으면 `coordinateSource`가 필요하다. 층(`floors`)은 건물·층·시설 정보이고 `GET /api/campus/map`의 각 건물에 포함된다. `facilitiesPublic=false`인 층은 층 이름만 응답하고 시설 목록은 빈 배열이다. 도면(`floorPlans`)의 `floor`는 등록된 층이어야 한다.
 
 학교 경계는 `school.boundary`로 등록한다. 기존 평면 형식(`school.latitude/longitude/radiusMeters`)도 그대로 읽어 같은 원형 경계로 처리한다. 두 형식을 함께 쓰면 시작 시 거부한다.
 
@@ -110,7 +114,7 @@ boundary: { type: "CIRCLE", center: { latitude, longitude }, radiusMeters, sourc
 boundary: { type: "POLYGON", points: [{ latitude, longitude }, ...], source }
 ```
 
-좌표는 출처를 확인할 수 있는 값만 등록하며 `source`(boundary 또는 school)가 비어 있으면 시작 시 거부한다. POLYGON은 서로 다른 꼭짓점 3개 이상, 면적이 있고 변이 교차하지 않아야 한다(첫 점을 마지막에 반복해도 된다). 다각형 판정은 측정 위치 기준 국소 평면에서 ray casting으로 안팎을 구하고, 가장 가까운 변까지의 거리와 GPS 오차를 비교한다. 원형과 같은 규칙으로 오차 범위 전체가 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 겹치면 UNKNOWN이다. 경계 좌표가 없는 자료도 로딩할 수 있으며, 이때 지도 응답은 `locationCheckAvailable=false`이고 위치 비교만 503이다. 도면은 공개 승인이 있고 파일이 등록돼야 제공하며 없으면 available=false/items=[]/NOT_REGISTERED다. 현재 층을 알아내는 기능은 없다.
+좌표는 출처를 확인할 수 있는 값만 등록하며 `source`(boundary 또는 school)가 비어 있으면 시작 시 거부한다. POLYGON은 서로 다른 꼭짓점 3개 이상, 면적이 있고 변이 교차하지 않아야 한다(첫 점을 마지막에 반복해도 된다). 다각형 판정은 측정 위치 기준 국소 평면에서 ray casting으로 안팎을 구하고, 가장 가까운 변까지의 거리와 GPS 오차를 비교한다. 원형과 같은 규칙으로 오차 범위 전체가 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 겹치면 UNKNOWN이다. 경계 좌표가 없는 자료도 로딩할 수 있으며, 이때 지도 응답은 `locationCheckAvailable=false`이고 위치 비교만 503이다. 도면 공개 여부는 도면별 `publicationApproved`로 정하고, 없으면 건물의 `publicationApproved`(기본 false)를 따른다. 승인된 도면에는 HTTPS url이 필요하다. `GET /api/campus/buildings/{id}/floor-plans`는 승인된 도면만 응답하며, 도면에 시설 목록이 없으면 연결된 층의 공개 시설 목록을 붙인다. 승인되지 않은 도면은 개수·층·URL을 포함해 응답하지 않는다. 응답 reason: 승인된 도면이 있으면 AVAILABLE, 도면은 등록됐지만 승인된 것이 없으면 available=false/items=[]/NOT_APPROVED, 도면이 없으면 available=false/items=[]/NOT_REGISTERED. 미승인 도면에 대해 403을 반환하던 이전 동작은 200 + NOT_APPROVED로 바뀌었다. 현재 층을 알아내는 기능은 없다.
 
 `POST /api/campus/location-check` 또는 `/api/chats/{id}/location-check`에 latitude, longitude, horizontalAccuracyMeters, measuredAt(ISO 8601)을 보낸다. 오래된 측정은 422, 30초보다 미래 시각/잘못된 좌표는 400, 기준 자료 미등록은 503. 정확도 초과는 LOW_ACCURACY, 오차 범위 전체가 학교 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 경계와 겹치면 UNKNOWN. 응답 카드는 일시적으로 표시하며 원 좌표를 저장하지 않는다.
 
