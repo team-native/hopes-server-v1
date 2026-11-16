@@ -145,6 +145,9 @@ class AuthService(
 
     @Transactional
     fun resetPassword(request: PasswordResetConfirmRequest, clientAddress: String) {
+        if (request.passwordConfirm != null && request.passwordConfirm != request.newPassword) {
+            throw ApiException(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다.")
+        }
         verificationService.consume(request.email, request.code, clientAddress)
         val user = users.findByEmail(request.email.lowercase())
             ?: throw ApiException(HttpStatus.NOT_FOUND, "등록된 회원을 찾을 수 없습니다.")

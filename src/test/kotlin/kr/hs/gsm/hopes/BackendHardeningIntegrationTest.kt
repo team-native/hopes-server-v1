@@ -76,6 +76,31 @@ class BackendHardeningIntegrationTest @Autowired constructor(
     }
 
     @Test
+    fun `Android password alias resets credentials and mismatched confirmation preserves the code`() {
+        val email = "legacy-reset-user@gsm.hs.kr"
+        val token = signup(email, "legacy-reset-user")
+        mockMvc.post("/api/password/request") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"email":"$email"}"""
+        }.andExpect { status { isAccepted() } }
+        val code = verifications.findById(email).orElseThrow().code
+        mockMvc.post("/api/password/reset") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"email":"$email","code":"$code","password":"newpassword2","passwordConfirm":"different3"}"""
+        }.andExpect { status { isBadRequest() } }
+        login("legacy-reset-user", "password1").andExpect { status { isOk() } }
+        mockMvc.post("/api/password/reset") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"email":"$email","code":"$code","password":"newpassword2","passwordConfirm":"newpassword2"}"""
+        }.andExpect { status { isOk() } }
+        mockMvc.get("/api/mypage") {
+            header("Authorization", token)
+        }.andExpect { status { isUnauthorized() } }
+        login("legacy-reset-user", "password1").andExpect { status { isUnauthorized() } }
+        login("legacy-reset-user", "newpassword2").andExpect { status { isOk() } }
+    }
+
+    @Test
     fun `DB 컬럼보다 긴 요청값은 저장 전에 400으로 거절한다`() {
         mockMvc.post("/api/signup") {
             contentType = MediaType.APPLICATION_JSON

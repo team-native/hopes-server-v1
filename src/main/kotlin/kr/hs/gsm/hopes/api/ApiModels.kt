@@ -1,5 +1,6 @@
 package kr.hs.gsm.hopes.api
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -66,7 +67,10 @@ data class PasswordResetConfirmRequest(
     val code: String,
     @field:Size(min = 8, max = 15)
     @field:Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "비밀번호는 영문과 숫자를 포함해야 합니다")
+    @param:JsonAlias("password")
+    @field:Schema(description = "새 비밀번호. 기존 Android 클라이언트의 password 필드도 허용합니다.")
     val newPassword: String,
+    @field:Size(max = 15) val passwordConfirm: String? = null,
 )
 data class ThemeRequest(val theme: Theme)
 data class MyPageUpdateRequest(
