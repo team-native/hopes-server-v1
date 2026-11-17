@@ -55,6 +55,12 @@ constructor(
         assertEquals("FLOOR_OVERVIEW", second["location"]["status"].asText())
         assertEquals("donghaeng-2F", second["location"]["floorPlans"][0]["id"].asText())
         assertEquals(3, send(path, """{"content":"기숙사 3층"}""")["messages"].last()["location"]["floorPlans"][0]["floor"].asText().removeSuffix("F").toInt())
+        listOf("기숙사 2층 도면 좀 보여줘", "기숙사 3층 도면 보여줘", "동행관 2층 배치도 보여줘").forEach { question ->
+            val overview = send(path, mapper.writeValueAsString(mapOf("content" to question)))["messages"].last()
+            assertEquals("FLOOR_OVERVIEW", overview["location"]["status"].asText(), question)
+            assertEquals(1, overview["location"]["floorPlans"].size(), question)
+            assertFalse(overview["content"].asText().contains("확인하지 못했어"), question)
+        }
         val library = send(path, """{"content":"도서관"}""")["messages"].last()
         assertEquals("도서실", library["location"]["candidates"][0]["place"]["name"].asText())
         val search = mvc.perform(get("/api/campus/navigation/places").param("q", "2-3반 앞").header("Authorization", auth)).andReturn().response

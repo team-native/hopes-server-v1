@@ -380,7 +380,7 @@ internal class CampusNavigator(private val data: NavigationData, campus: CampusD
         if (destinationId == null && (building != null || question.contains("홈베이스"))) {
             val images = publishedPlanViews(building, floor)
             val buildingFloorOnly = building != null && (floor == null ||
-                Regex("(?:본관|실습동|금봉관|동행관)\\s*[1-9]\\s*(?:층|[fF])\\s*(?:위치|어디|어딨|어딘|은|는|없어|있어|있나|안내|알려|\\?|$)").containsMatchIn(normalized))
+                Regex("(?:본관|실습동|금봉관|동행관)\\s*[1-9]\\s*(?:층|[fF])\\s*(?:위치|어디|어딨|어딘|도면|배치도|평면도|지도|은|는|없어|있어|있나|안내|알려|\\?|$)").containsMatchIn(normalized))
             val scope = listOfNotNull(building?.name, floor?.replace("F", "층")).joinToString(" ")
             val message = if (buildingFloorOnly && images.isNotEmpty()) "$scope 도면이야. 찾는 장소나 출발 위치를 선택해줘."
                 else "$scope 배치도에서 요청한 장소의 정확한 표기와 좌표를 확인하지 못했어. 표기가 없다고 실제 시설이 없다는 뜻은 아니야. 확인되지 않은 위치는 추측하지 않을게."
