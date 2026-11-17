@@ -4,6 +4,7 @@ package kr.hs.gsm.hopes.feature
 fun normalizedPlaceName(value: String): String {
     var text = value.lowercase().replace(Regex("\\s+"), "")
     text = Regex("([1-3])[-–]([1-9])(?:반)?").replace(text) { "${it.groupValues[1]}학년${it.groupValues[2]}반" }
+    text = Regex("(?<!\\d)([3-5]\\d{2})(?!\\d|호)").replace(text) { "${it.groupValues[1]}호" }
     val aliases = mapOf("도서관" to "도서실", "라이브러리" to "도서실", "library" to "도서실", "양호실" to "보건실", "급식실" to "식생활관", "식당" to "식생활관", "기숙사" to "동행관")
     aliases.forEach { (alias, canonical) -> text = text.replace(alias, canonical) }
     text = text.replace(Regex("홈베(?!이스)"), "홈베이스")
