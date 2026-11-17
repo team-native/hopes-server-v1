@@ -1,5 +1,15 @@
 # Hopes 운영 서버 위치와 점검
 
+## 앱·Swagger HTTPS 주소
+
+- API base URL: `https://hopes-v1.https.gsmsv.site`
+- Swagger: `https://hopes-v1.https.gsmsv.site/swagger-ui/index.html`
+- OpenAPI: `https://hopes-v1.https.gsmsv.site/v3/api-docs`
+
+GSMSV 인스턴스 116 (`hopes-server`, gsmgpu1)의 HTTPS 탭에서 위 도메인을 내부 80번 포트로 연결한다. 인증서는 GSMSV의 외부 Caddy에서 관리하며 Hopes VM은 nginx 80 → Spring 8080으로 전달한다. `service.gsmsv.site:22116`은 기존 HTTP 포트 접속 주소다. 앱의 HTTPS 기본 주소는 포트 없는 전용 도메인을 사용한다.
+
+2026-11-17 인증서 검증을 켠 외부 요청으로 전용 도메인의 `/v3/api-docs` 200 응답을 확인했다. 인증서 검증을 끄거나 자체 서명 인증서를 앱에 추가할 필요가 없다.
+
 ## 백엔드 위치
 
 - 실행 JAR: `/opt/hopes/hopes-server.jar`
