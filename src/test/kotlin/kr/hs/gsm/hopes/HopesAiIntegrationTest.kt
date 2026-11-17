@@ -261,6 +261,24 @@ class HopesAiIntegrationTest @Autowired constructor(
         }.andExpect { status { isTooManyRequests() } }
     }
 
+    @Test
+    fun `all selected specialties reach AI and changing the selection invalidates a retry key`() {
+        val authorization = signupAndToken("ai-multi@gsm.hs.kr", "ai-multi")
+        val chatId = createChat(authorization, "multiple specialties")
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"공부 방법 알려줘","specialtyIds":[104,105],"clientRequestId":"multi"}"""
+        }.andExpect { status { isOk() } }
+        val turn = gemini.generatedTurns.last().last().second
+        assertTrue(turn.contains("Backend, AI"))
+        mockMvc.post("/api/chats/$chatId/messages") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"content":"공부 방법 알려줘","specialtyIds":[104,106],"clientRequestId":"multi"}"""
+        }.andExpect { status { isConflict() } }
+    }
+
     private fun signupAndToken(email: String, username: String): String {
         mockMvc.post("/api/signup/email-verifications") {
             contentType = MediaType.APPLICATION_JSON

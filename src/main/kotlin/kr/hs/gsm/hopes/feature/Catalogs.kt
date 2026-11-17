@@ -44,6 +44,11 @@ class ChatPreference(
     var departmentId: Long? = null,
     var specialtyId: Long? = null,
     @Version var version: Long? = null,
+    @ElementCollection
+    @CollectionTable(name = "chat_preference_specialties", joinColumns = [JoinColumn(name = "user_id")])
+    @OrderColumn(name = "selection_order")
+    @Column(name = "specialty_id", nullable = false)
+    var specialtyIds: MutableList<Long> = mutableListOf(),
 )
 
 interface CategoryRepository : JpaRepository<ChatCategory, Long> {
@@ -64,6 +69,7 @@ data class PreferenceDto(
     val departmentId: Long?,
     val specialtyId: Long?,
     val invalidSelection: Boolean = false,
+    val specialtyIds: List<Long> = emptyList(),
 )
 
 @Service
@@ -86,10 +92,19 @@ class CatalogService(
             ?: fail(HttpStatus.CONFLICT, "삭제되거나 비활성화된 카테고리입니다")
     }
 
-    fun context(departmentId: Long?, specialtyId: Long?): String {
+    fun selection(specialtyId: Long?, specialtyIds: List<Long?>?): List<Long> {
+        if ((specialtyIds?.size ?: 0) > 20 || specialtyId?.let { it <= 0 } == true || specialtyIds?.any { it == null || it <= 0 } == true)
+            fail(HttpStatus.BAD_REQUEST, "전공 ID는 양수이며 최대 20개까지 선택할 수 있습니다")
+        val ids = specialtyIds?.filterNotNull()?.distinct() ?: listOfNotNull(specialtyId)
+        if (specialtyIds != null && specialtyId != null && ids.firstOrNull() != specialtyId)
+            fail(HttpStatus.BAD_REQUEST, "specialtyId는 specialtyIds의 첫 번째 항목과 같아야 합니다")
+        return ids
+    }
+
+    fun context(departmentId: Long?, specialtyId: Long?, specialtyIds: List<Long>? = null): String {
         val department = validate(departmentId, "DEPARTMENT")
-        val specialty = validate(specialtyId, "SPECIALTY")
-        return "선택 학과: ${department?.name ?: "전체"}\n관심 전공: ${specialty?.name ?: "전체"}"
+        val specialties = selection(specialtyId, specialtyIds).map { validate(it, "SPECIALTY")!!.name }
+        return "선택 학과: ${department?.name ?: "전체"}\n관심 전공: ${specialties.joinToString(", ").ifEmpty { "전체" }}"
     }
 
     @Transactional(readOnly = true)
@@ -97,15 +112,16 @@ class CatalogService(
         val row =
             preferences.findById(users.requireUser(email).id!!).orElse(null)
                 ?: return PreferenceDto(null, null)
-        val invalid = runCatching { context(row.departmentId, row.specialtyId) }.isFailure
-        return PreferenceDto(row.departmentId, row.specialtyId, invalid)
+        val ids = row.specialtyIds.toList()
+        val invalid = runCatching { context(row.departmentId, row.specialtyId, ids) }.isFailure
+        return PreferenceDto(row.departmentId, row.specialtyId, invalid, ids)
     }
 
     @Transactional
     fun update(email: String, body: JsonNode): PreferenceDto {
         if (
             !body.isObject ||
-                body.fieldNames().asSequence().any { it !in setOf("departmentId", "specialtyId") }
+                body.fieldNames().asSequence().any { it !in setOf("departmentId", "specialtyId", "specialtyIds") }
         )
             fail(HttpStatus.BAD_REQUEST, "학과와 전공 ID만 전달해주세요")
         val uid = users.requireUser(email).id!!
@@ -119,12 +135,23 @@ class CatalogService(
             return node.asLong()
         }
         val department = read("departmentId", row.departmentId)
-        val specialty = read("specialtyId", row.specialtyId)
-        context(department, specialty)
+        val ids = if (body.has("specialtyIds")) {
+            val values = body["specialtyIds"]
+            if (!values.isArray || values.size() > 20 || values.any { !it.isIntegralNumber || !it.canConvertToLong() })
+                fail(HttpStatus.BAD_REQUEST, "specialtyIds는 최대 20개의 정수 배열이어야 합니다")
+            if (body.has("specialtyId") && body["specialtyId"].isNull && values.size() > 0)
+                fail(HttpStatus.BAD_REQUEST, "단일 전공과 전공 목록이 일치하지 않습니다")
+            selection(if (body.has("specialtyId")) read("specialtyId", null) else null, values.map { it.asLong() })
+        } else if (body.has("specialtyId")) selection(read("specialtyId", null), null)
+        else row.specialtyIds.toList()
+        val specialty = ids.firstOrNull()
+        context(department, specialty, ids)
         row.departmentId = department
         row.specialtyId = specialty
+        row.specialtyIds.clear()
+        row.specialtyIds.addAll(ids)
         preferences.save(row)
-        return PreferenceDto(department, specialty)
+        return PreferenceDto(department, specialty, specialtyIds = ids)
     }
 }
 

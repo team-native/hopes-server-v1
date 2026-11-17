@@ -90,6 +90,7 @@ data class SendMessageRequest(
     val departmentId: Long? = null,
     val specialtyId: Long? = null,
     @field:Size(min = 1, max = 100) val clientRequestId: String? = null,
+    @field:Size(max = 20) val specialtyIds: List<Long>? = null,
 )
 data class InquiryRequest(
     @field:NotBlank @field:Size(max = CUSTOM_PROMPT_MAX_LENGTH) val content: String,

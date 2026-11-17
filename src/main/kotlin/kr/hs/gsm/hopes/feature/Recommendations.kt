@@ -108,9 +108,11 @@ class RecommendationService(
         refreshToken: String?,
         excludeIds: List<Long>,
         personalized: Boolean,
+        specialtyIds: List<Long>? = null,
     ): RecommendationResult {
         val user = users.requireUser(email)
-        catalog.context(departmentId, specialtyId)
+        val selected = catalog.selection(specialtyId, specialtyIds)
+        catalog.context(departmentId, specialtyId, selected)
         if (limit !in 1..20 || excludeIds.size > 100 || (refreshToken?.length ?: 0) > 100)
             fail(HttpStatus.BAD_REQUEST, "추천 개수/제외 목록/갱신 토큰을 확인해주세요")
         val all = recommendations.findAllByIsActiveTrueOrderBySortOrderAscIdAsc()
@@ -118,7 +120,7 @@ class RecommendationService(
         val matched =
             all.filter {
                     (it.departmentId == null || it.departmentId == departmentId) &&
-                        (it.specialtyId == null || it.specialtyId == specialtyId) &&
+                        (it.specialtyId == null || it.specialtyId in selected) &&
                         (it.departmentId != null || it.specialtyId != null)
                 }
                 .sortedByDescending {
@@ -150,7 +152,7 @@ class RecommendationService(
                     .getOrElse { fail(HttpStatus.BAD_REQUEST, "갱신 토큰 형식 오류") }
             }
         val primary =
-            if (departmentId == null && specialtyId == null && usingPersonalization) all
+            if (departmentId == null && selected.isEmpty() && usingPersonalization) all
             else matched
         fun ordered(values: List<QuestionRecommendation>) =
             (if (seed != null) values.shuffled(Random(seed)) else values).sortedByDescending {
@@ -169,14 +171,14 @@ class RecommendationService(
             when {
                 usingPersonalization -> "PERSONALIZED"
                 matched.isEmpty() -> "DEFAULT"
-                departmentId != null && specialtyId != null -> "COMBINED"
+                departmentId != null && selected.isNotEmpty() -> "COMBINED"
                 departmentId != null -> "DEPARTMENT"
                 else -> "SPECIALTY"
             }
         return RecommendationResult(
             items.map { RecommendationDto(it.id, it.content, it.departmentId, it.specialtyId) },
             source,
-            (departmentId != null || specialtyId != null) && matched.isEmpty(),
+            (departmentId != null || selected.isNotEmpty()) && matched.isEmpty(),
             UUID.randomUUID().toString(),
         )
     }
@@ -196,6 +198,7 @@ class RecommendationController(private val service: RecommendationService) {
         @RequestParam(required = false) refreshToken: String?,
         @RequestParam(defaultValue = "") excludeIds: List<Long>,
         @RequestParam(defaultValue = "false") personalized: Boolean,
+        @RequestParam(required = false) specialtyIds: List<Long>?,
     ) =
         service.list(
             auth.name,
@@ -205,6 +208,7 @@ class RecommendationController(private val service: RecommendationService) {
             refreshToken,
             excludeIds,
             personalized,
+            specialtyIds,
         )
 
     @GetMapping("/privacy/recommendation-consent")

@@ -272,6 +272,35 @@ constructor(
     }
 
     @Test
+    fun `multiple specialties persist replace clear and filter recommendations with legacy compatibility`() {
+        val t = user()
+        val saved = call("PATCH", "/api/chat-preferences", t, """{"specialtyIds":[104,105,104]}""")
+        assertEquals(listOf(104L, 105L), saved["specialtyIds"].map { it.asLong() })
+        assertEquals(104, saved["specialtyId"].asInt())
+        val read = call("GET", "/api/chat-preferences", t)
+        assertEquals(saved["specialtyIds"], read["specialtyIds"])
+        val unchanged = call("PATCH", "/api/chat-preferences", t, """{"departmentId":1}""")
+        assertEquals(saved["specialtyIds"], unchanged["specialtyIds"])
+        call("PATCH", "/api/chat-preferences", t, """{"specialtyIds":[105,104]}""")
+        assertEquals(listOf(105L, 104L), call("GET", "/api/chat-preferences", t)["specialtyIds"].map { it.asLong() })
+        listOf("[1]", "[-1]", "[9999]", "[104,\"105\"]", "null", "[1.2]").forEach { values ->
+            call("PATCH", "/api/chat-preferences", t, """{"specialtyIds":$values}""", if(values == "[1]" || values == "[9999]") 409 else 400)
+        }
+        call("PATCH", "/api/chat-preferences", t, """{"specialtyId":101,"specialtyIds":[104]}""", 400)
+        val selected = call("GET", "/api/question-recommendations?specialtyIds=104,105&limit=20", t)
+        val ids = selected["items"].mapNotNull { it["specialtyId"].takeUnless { it.isNull }?.asLong() }
+        assertTrue(ids.containsAll(listOf(104L,105L)))
+        assertTrue(ids.all { it == 104L || it == 105L })
+        call("GET", "/api/question-recommendations?specialtyIds=-1", t, expected = 400)
+        call("GET", "/api/question-recommendations?specialtyIds=1", t, expected = 409)
+        call("GET", "/api/question-recommendations?specialtyId=101&specialtyIds=104,105", t, expected = 400)
+        call("PATCH", "/api/chat-preferences", t, """{"specialtyId":101}""")
+        assertEquals(listOf(101L), call("GET", "/api/chat-preferences", t)["specialtyIds"].map { it.asLong() })
+        call("PATCH", "/api/chat-preferences", t, """{"specialtyIds":[]}""")
+        assertTrue(call("GET", "/api/chat-preferences", t)["specialtyId"].isNull)
+    }
+
+    @Test
     fun `recommendations refresh with exclusions and personalization follows consent`() {
         val t = user()
         val defaults = call("GET", "/api/question-recommendations?limit=2", t)

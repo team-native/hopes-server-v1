@@ -271,9 +271,12 @@ class ChatService(
         val user = users.requireUser(email)
         val conversation = requireConversation(user, id)
         val content = request.content.trim()
-        val context = catalogs.context(request.departmentId, request.specialtyId)
+        val context = catalogs.context(request.departmentId, request.specialtyId, request.specialtyIds)
+        val digestParts = listOf(content, request.attachmentIds.joinToString(","), request.departmentId, request.specialtyId)
+        val digestInput = if (request.specialtyIds == null) digestParts else
+            digestParts + catalogs.selection(request.specialtyId, request.specialtyIds).joinToString(",")
         val digest = MessageDigest.getInstance("SHA-256").digest(
-            listOf(content, request.attachmentIds.joinToString(","), request.departmentId, request.specialtyId).joinToString("\u0000").toByteArray()
+            digestInput.joinToString("\u0000").toByteArray()
         ).joinToString("") { "%02x".format(it) }
         request.clientRequestId?.let { key ->
             messages.findByConversationIdAndClientRequestId(id, key)?.let { existing ->
