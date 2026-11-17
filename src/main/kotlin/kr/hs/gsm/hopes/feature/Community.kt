@@ -48,6 +48,7 @@ class CommunityPost(
     @Column(nullable = false) var hidden: Boolean = false,
     @Column(nullable = false) var createdAt: Instant = Instant.now(),
     @Column(nullable = false) var updatedAt: Instant = Instant.now(),
+    @Column(nullable = false) var viewCount: Long = 0,
 )
 
 @Entity
@@ -121,6 +122,16 @@ interface BoardRepository : JpaRepository<CommunityBoard, Long> {
 }
 
 interface PostRepository : JpaRepository<CommunityPost, Long> {
+    @Query(value = """
+        SELECT p.* FROM community_posts p
+        WHERE p.deleted = FALSE AND p.hidden = FALSE
+          AND (:board IS NULL OR p.board_id = :board)
+          AND (LOWER(p.title) LIKE :keyword ESCAPE '!' OR LOWER(p.content) LIKE :keyword ESCAPE '!')
+        ORDER BY ((SELECT COUNT(*) FROM community_likes l WHERE l.post_id = p.id) * 10 + p.view_count) DESC,
+          (SELECT COUNT(*) FROM community_likes l WHERE l.post_id = p.id) DESC,
+          p.view_count DESC, p.created_at DESC, p.id DESC
+    """, nativeQuery = true)
+    fun popular(@Param("board") board: Long?, @Param("keyword") keyword: String, pageable: Pageable): Slice<CommunityPost>
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from CommunityPost p where p.id = :id")
     fun lockForModeration(@Param("id") id: Long): CommunityPost?
@@ -239,6 +250,8 @@ data class PostDto(
     val likedByMe: Boolean,
     val isMine: Boolean,
     val authorLabel: String = "익명",
+    val viewCount: Long = 0,
+    val popularityScore: Long = 0,
 )
 
 data class PostPreview(
@@ -253,6 +266,8 @@ data class PostPreview(
     val likedByMe: Boolean,
     val isMine: Boolean,
     val authorLabel: String = "익명",
+    val viewCount: Long = 0,
+    val popularityScore: Long = 0,
 )
 
 data class CommentDto(
@@ -278,6 +293,7 @@ data class ResultPage<T>(val items: List<T>, val page: Int, val size: Int, val h
 @Service
 @Transactional
 class CommunityService(
+    private val jdbc: org.springframework.jdbc.core.JdbcTemplate,
     private val users: UserService,
     private val boards: BoardRepository,
     private val posts: PostRepository,
@@ -340,6 +356,8 @@ class CommunityService(
             comments.countByPostIdAndDeletedFalseAndHiddenFalse(p.id!!),
             likes.findByUserIdAndPostId(uid, p.id!!) != null,
             p.authorId == uid,
+            viewCount = p.viewCount,
+            popularityScore = likes.countByPostId(p.id!!) * 10 + p.viewCount,
         )
 
     private fun preview(p: CommunityPost, uid: Long): PostPreview {
@@ -355,6 +373,8 @@ class CommunityService(
             d.commentCount,
             d.likedByMe,
             d.isMine,
+            viewCount = d.viewCount,
+            popularityScore = d.popularityScore,
         )
     }
 
@@ -367,6 +387,7 @@ class CommunityService(
         keyword: String?,
         page: Int,
         size: Int,
+        sort: String = "LATEST",
     ): ResultPage<PostPreview> {
         val user = uid(email)
         boardId?.let { board(it) }
@@ -379,7 +400,11 @@ class CommunityService(
                 .replace("!", "!!")
                 .replace("%", "!%")
                 .replace("_", "!_")
-        val rows = posts.search(boardId, "%$escaped%", pageRequest(page, size))
+        val rows = when (sort.uppercase(java.util.Locale.ROOT)) {
+            "LATEST" -> posts.search(boardId, "%$escaped%", pageRequest(page, size))
+            "POPULAR" -> posts.popular(boardId, "%$escaped%", pageRequest(page, size))
+            else -> fail(HttpStatus.BAD_REQUEST, "sort는 LATEST 또는 POPULAR여야 합니다")
+        }
         return ResultPage(rows.content.map { preview(it, user) }, page, size, rows.hasNext())
     }
 
@@ -416,7 +441,18 @@ class CommunityService(
         )
     }
 
-    fun get(email: String, id: Long) = dto(post(id), uid(email))
+    fun get(email: String, id: Long): PostDto {
+        val user = uid(email)
+        val p = lockedPost(id)
+        val day = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
+        if (p.authorId != user && jdbc.queryForObject(
+                "SELECT COUNT(*) FROM community_post_views WHERE post_id = ? AND user_id = ? AND viewed_on = ?",
+                Long::class.java, id, user, java.sql.Date.valueOf(day)) == 0L) {
+            jdbc.update("INSERT INTO community_post_views(post_id,user_id,viewed_on) VALUES(?,?,?)", id, user, java.sql.Date.valueOf(day))
+            p.viewCount += 1
+        }
+        return dto(p, user)
+    }
 
     fun update(email: String, id: Long, r: PostUpdate): PostDto {
         val user = uid(email)
@@ -593,7 +629,8 @@ class CommunityController(private val s: CommunityService) {
         @RequestParam(required = false) keyword: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-    ) = s.list(a.name, boardId, keyword, page, size)
+        @RequestParam(defaultValue = "LATEST") sort: String,
+    ) = s.list(a.name, boardId, keyword, page, size, sort)
 
     @PostMapping("/posts")
     @ResponseStatus(HttpStatus.CREATED)

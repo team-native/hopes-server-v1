@@ -80,6 +80,36 @@ constructor(
                 "id"]
             .asLong()
 
+    @Test
+    fun `popular posts use likes times ten plus daily deduplicated views`() {
+        val owner = user()
+        val viewer = user()
+        val board = boardId(owner, null)
+        val key = "popular" + UUID.randomUUID().toString().replace("-", "")
+        fun create(suffix: String) = call("POST", "/api/community/posts", owner,
+            """{"boardId":$board,"title":"$key$suffix","content":"ranking"}""", 201)["id"].asLong()
+        val liked = create("a")
+        val viewed = create("b")
+        val newest = create("c")
+        assertEquals(0, call("GET", "/api/community/posts/$liked", owner)["viewCount"].asInt())
+        repeat(3) { assertEquals(1, call("GET", "/api/community/posts/$viewed", viewer)["viewCount"].asInt()) }
+        call("PUT", "/api/community/posts/$liked/like", viewer)
+        val path = "/api/community/posts?keyword=$key&sort=POPULAR"
+        val popular = call("GET", path, owner)
+        assertEquals(listOf(liked, viewed, newest), popular["items"].map { it["id"].asLong() })
+        assertEquals(10, popular["items"][0]["popularityScore"].asInt())
+        assertEquals(1, popular["items"][1]["popularityScore"].asInt())
+        assertEquals(newest, call("GET", "/api/community/posts?keyword=$key", owner)["items"][0]["id"].asLong())
+        val paged = call("GET", "$path&size=1&page=1", owner)
+        assertEquals(viewed, paged["items"][0]["id"].asLong())
+        assertTrue(paged["hasNext"].asBoolean())
+        call("DELETE", "/api/community/posts/$liked/like", viewer)
+        assertEquals(viewed, call("GET", path, owner)["items"][0]["id"].asLong())
+        call("GET", "/api/community/posts?sort=wrong", owner, expected = 400)
+        call("DELETE", "/api/community/posts/$viewed", owner, expected = 204)
+        assertFalse(call("GET", path, owner)["items"].any { it["id"].asLong() == viewed })
+    }
+
     private fun raw(path: String, token: String) =
         mvc.perform(get(path).header("Authorization", token))
             .andExpect(status().isOk)

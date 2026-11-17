@@ -71,6 +71,10 @@ class DataRetentionService(
                     Timestamp.from(now),
                 )
             }!!
-        return mapOf("chats" to chats, "inquiries" to inquiries, "verifications" to verifications)
+        val viewReceipts = tx.execute {
+            val today = now.atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()
+            jdbc.update("DELETE FROM community_post_views WHERE viewed_on < ?", java.sql.Date.valueOf(today))
+        }!!
+        return mapOf("chats" to chats, "inquiries" to inquiries, "verifications" to verifications, "viewReceipts" to viewReceipts)
     }
 }
