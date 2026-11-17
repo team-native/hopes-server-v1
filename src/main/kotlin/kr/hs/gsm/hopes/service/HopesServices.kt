@@ -193,9 +193,9 @@ class UserService(
     }
 
     @Transactional
-    fun submitInquiry(email: String, content: String) {
+    fun submitInquiry(email: String, content: String, replyEmail: String? = null) {
         val user = requireUser(email)
-        inquiries.save(Inquiry(user = user, content = content.trim()))
+        inquiries.save(Inquiry(user = user, content = content.trim(), replyEmail = replyEmail ?: user.email))
     }
 
     @Transactional

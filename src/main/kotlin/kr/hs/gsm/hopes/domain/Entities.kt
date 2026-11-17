@@ -95,6 +95,8 @@ class Inquiry(
     var content: String = "",
     @Column(nullable = false)
     var createdAt: Instant = Instant.now(),
+    @Column(length = 255)
+    var replyEmail: String? = null,
 )
 
 @Entity

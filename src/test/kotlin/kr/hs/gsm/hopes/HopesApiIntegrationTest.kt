@@ -297,6 +297,34 @@ class HopesApiIntegrationTest @Autowired constructor(
         assertEquals("급식 기능도 추가해주세요", inquiryRepository.findAll().single().content)
     }
 
+    @Test
+    fun `inquiry stores reply address and rejects invalid email without saving`() {
+        val email = "inquiry-email@gsm.hs.kr"
+        val authorization = signupAndAuthorization(email, "inquiry-email")
+        fun submit(body: String) = mockMvc.post("/api/setting/inquiry") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = body
+        }
+        submit("""{"content":"legacy"}""").andExpect { status { isAccepted() } }
+        submit("""{"content":"explicit","replyEmail":"reply@example.com"}""")
+            .andExpect { status { isAccepted() } }
+        listOf("invalid", "", "   ").forEach { address ->
+            submit(objectMapper.writeValueAsString(mapOf("content" to "invalid", "replyEmail" to address)))
+                .andExpect { status { isBadRequest() } }
+        }
+        val id = userRepository.findByEmail(email)!!.id
+        val rows = inquiryRepository.findAll().filter { it.user.id == id }
+        assertEquals(2, rows.size)
+        assertEquals(email, rows.single { it.content == "legacy" }.replyEmail)
+        assertEquals("reply@example.com", rows.single { it.content == "explicit" }.replyEmail)
+        mockMvc.delete("/api/account") {
+            header("Authorization", authorization)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"password":"password1"}"""
+        }.andExpect { status { isNoContent() } }
+    }
+
     private fun signupAndAuthorization(email: String, username: String): String {
         mockMvc.post("/api/signup/email-verifications") {
             contentType = MediaType.APPLICATION_JSON

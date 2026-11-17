@@ -187,3 +187,14 @@ H2에서 V1~V9 적용과 전체 질문 중복·길이·카탈로그 참조·27�
 `GET /api/campus/facilities?keyword=보건실&buildingId=1&floor=1F`는 인증이 필요하다. 필터는 선택이며 keyword는 시설명·건물명 부분 검색(최대 100자), floor는 층 이름(최대 20자, 대소문자 무시)이다. 응답은 `{items:[{buildingId,buildingName,floor,name}],total}`이다. 비공개 층의 시설·내부 메모·미승인 도면은 검색에 포함하지 않는다. 기준 자료 미등록은 503, 없는 건물 ID는 404다.
 
 채팅은 질문에 등장하는 건물명·시설명과 일치하는 공개 시설 정보만 시스템 근거에 덧붙인다. 기숙사 비공개 시설과 메모는 전달하지 않으며 도면 이미지·길찾기·GPS 위치를 생성하지 않는다. 외부 AI 키가 없어도 시설 검색 API 자체는 사용할 수 있다.
+
+
+## Inquiry reply email
+
+`POST /api/setting/inquiry` accepts an optional `replyEmail` (valid email, up to 255 characters).
+
+```json
+{"content":"Please help with login", "replyEmail":"reply@example.com"}
+```
+
+Omitting it or sending null uses the authenticated account email for new inquiries. Empty/blank or invalid addresses return 400. Existing inquiries retain null; their account email remains available through the inquiry owner. The response stays 202. This endpoint stores the inquiry only; it does not send an acknowledgment or an answer email. An operator reply workflow is not implemented.

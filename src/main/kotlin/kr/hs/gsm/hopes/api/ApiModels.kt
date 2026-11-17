@@ -91,7 +91,13 @@ data class SendMessageRequest(
     val specialtyId: Long? = null,
     @field:Size(min = 1, max = 100) val clientRequestId: String? = null,
 )
-data class InquiryRequest(@field:NotBlank @field:Size(max = CUSTOM_PROMPT_MAX_LENGTH) val content: String)
+data class InquiryRequest(
+    @field:NotBlank @field:Size(max = CUSTOM_PROMPT_MAX_LENGTH) val content: String,
+    @field:Email @field:Size(max = EMAIL_MAX_LENGTH)
+    @field:Pattern(regexp = ".*\\S.*", message = "답변 이메일은 공백일 수 없습니다")
+    @field:Schema(description = "답변받을 이메일. 생략하거나 null이면 가입 이메일을 사용합니다.", example = "reply@example.com")
+    val replyEmail: String? = null,
+)
 
 data class TokenResponse(val accessToken: String, val tokenType: String = "Bearer")
 data class UserResponse(val username: String, val email: String, val nickname: String, val profileInfo: String, val profileImage: String?, val gender: String?, val major: String?, val cohort: Int?)

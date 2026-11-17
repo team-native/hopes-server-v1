@@ -242,7 +242,7 @@ class SettingsController(private val users: UserService) {
     @PostMapping("/setting/inquiry")
     @Operation(summary = "문의 접수")
     fun inquiry(authentication: Authentication, @Valid @RequestBody request: InquiryRequest): ResponseEntity<MessageEnvelope> {
-        users.submitInquiry(authentication.name, request.content)
+        users.submitInquiry(authentication.name, request.content, request.replyEmail)
         return ResponseEntity.accepted().body(MessageEnvelope("문의가 접수되었습니다"))
     }
 }
