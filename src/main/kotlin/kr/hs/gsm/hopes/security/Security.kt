@@ -121,6 +121,7 @@ class SecurityConfig(
                     "/api/signup/**",
                     "/api/login",
                     "/api/password/**",
+                    "/api/privacy/policy",
                     "/actuator/health",
                     "/v3/api-docs/**",
                     "/swagger-ui/**",

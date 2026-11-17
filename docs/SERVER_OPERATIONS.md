@@ -34,6 +34,17 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now hopes
 ```
 
+## 문의 답변과 개인정보 보관
+
+- 담당: 네이티브 팀, `team.native.official@gmail.com`. 운영자 계정은 `ADMIN` 권한으로 Swagger에 로그인한다.
+- `GET /api/admin/inquiries`와 `GET /api/admin/inquiries/{id}`로 문의를 확인하고, `POST /api/admin/inquiries/{id}/reply`에 `{"content":"답변", "clientRequestId":"고유한-요청-ID"}`를 보낸다.
+- 메일은 운영 SMTP에서 보내며 Reply-To는 팀 공식 주소다. 동일 문의·동일 요청 ID·동일 내용의 재시도는 발송 상태만 반환한다. 다른 답변 요청은 409다.
+- `SENT`는 SMTP 인계 성공이며 수신함 도착을 보장하지 않는다. `SENDING`이 오래 남거나 `DELIVERY_UNKNOWN`이면 발신함·반송 메일을 먼저 확인한다. 중복 메일 방지를 위해 자동 재발송하지 않는다. 추가 답변은 팀 공식 메일에서 직접 처리한다.
+- 사용자는 `GET /api/setting/inquiries`에서 자신의 문의·답변만 확인한다.
+- 문의는 접수일, 대화는 마지막 변경일부터 365일 보관한다. 매일 04:10 KST에 정리하며, 대량 적체 방지를 위해 한 번에 각 10,000개까지 처리한다. `INQUIRY_RETENTION_DAYS`, `CHAT_RETENTION_DAYS`로 변경하면 공개 방침도 함께 수정한다.
+- 개인정보 처리방침 링크: `https://hopes-v1.https.gsmsv.site/api/privacy/policy`. 앱에는 이 웹 링크를 연결한다.
+- Discord 질문 로그는 DB 정리와 자동 연동되지 않는다. 외부 로그 삭제 요청이 들어오면 운영자가 해당 메시지 삭제를 별도로 처리해야 한다. 백업 복원 후에는 탈퇴·삭제 요청을 재반영한다.
+
 ## DB 백업 위치
 
 - 실제 백업 파일: `/var/backups/hopes/mysql` (root 전용)

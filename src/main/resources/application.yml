@@ -46,6 +46,9 @@ springdoc:
     path: /v3/api-docs
 
 hopes:
+  retention:
+    inquiry-days: ${INQUIRY_RETENTION_DAYS:365}
+    chat-days: ${CHAT_RETENTION_DAYS:365}
   attachments:
     directory: ${ATTACHMENT_DIRECTORY:./data/attachments}
     max-file-bytes: ${ATTACHMENT_MAX_FILE_BYTES:5242880}
