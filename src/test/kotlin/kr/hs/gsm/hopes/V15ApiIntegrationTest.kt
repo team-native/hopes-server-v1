@@ -156,6 +156,7 @@ constructor(
                 "/api/community/me/posts",
                 "/api/community/me/comments",
                 "/api/campus/map",
+                "/api/campus/navigation/places",
                 "/api/attachments/1",
             )) mvc.perform(get(path)).andExpect(status().isUnauthorized)
         mvc.perform(
@@ -167,7 +168,7 @@ constructor(
     }
 
     @Test
-    fun `OpenAPI exposes all 32 contracts including existing chat extensions`() {
+    fun `OpenAPI exposes all 34 contracts including existing chat extensions`() {
         val paths =
             mapper
                 .readTree(mvc.perform(get("/v3/api-docs")).andReturn().response.contentAsString)[
@@ -197,8 +198,10 @@ constructor(
                 "/api/campus/location-check" to "post",
                 "/api/chats/{id}/location-check" to "post",
                 "/api/campus/buildings/{buildingId}/floor-plans" to "get",
+                "/api/campus/navigation/places" to "get",
+                "/api/campus/navigation/route" to "get",
             )
-        assertEquals(32, contracts.values.sumOf { it.split(' ').size })
+        assertEquals(34, contracts.values.sumOf { it.split(' ').size })
         contracts.forEach { (path, methods) ->
             methods.split(' ').forEach { assertTrue(paths[path]?.has(it) == true, "$it $path") }
         }
@@ -551,6 +554,7 @@ constructor(
         val t = user()
         val chat = createChat(t)
         call("GET", "/api/campus/map", t, expected = 503)
+        call("GET", "/api/campus/navigation/places", t, expected = 503)
         val now = Instant.now()
         call(
             "POST",

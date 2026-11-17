@@ -1,0 +1,301 @@
+{
+  "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(사용자 제공 2026-11-16·17)에서 방·복도 위치를 픽셀 좌표로 옮김",
+  "note": "좌표는 각 배치도 PNG 원본 픽셀 기준(rect=[x,y,width,height]). 실제 문 위치는 표시되어 있지 않아, door가 없으면 복도 중심선에 가장 가까운 방 테두리를 문으로 본다. metersPerPixel=0.14는 교실 폭(약 9m)으로 잡은 추정치. 기숙사 시설 비공개 층(동행관 3~5F)과 2F 호실은 넣지 않았다. 금봉관 '본관 연결계단'이 본관 몇 층과 이어지는지, 건물 사이 실외 거리는 확인 전이라 outdoor는 추정값이다. 당직실·외부 연결 계단·옥상은 출입 위치를 판단할 수 없어 제외.",
+  "outdoor": {"distanceMeters": 100, "note": "건물 사이 실외 이동 거리 추정값(학교 배치 확인 전)"},
+  "maps": [
+    {
+      "id": "main-1F",
+      "floor": "1F",
+      "group": "본관·실습동",
+      "width": 844,
+      "height": 247,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[51, 143], [300, 143]],
+        [[300, 52], [300, 178], [792, 178]],
+        [[548, 143], [548, 178]]
+      ],
+      "places": [
+        {"id": "main-1F-01", "name": "행정실 옆 출입문", "buildingId": 1, "type": "ENTRANCE", "rect": [285, 16, 30, 34]},
+        {"id": "main-1F-02", "name": "성고충상담실/보건실", "buildingId": 1, "type": "ROOM", "rect": [52, 53, 47, 69]},
+        {"id": "main-1F-03", "name": "교장실", "buildingId": 1, "type": "ROOM", "rect": [103, 52, 80, 70]},
+        {"id": "main-1F-04", "name": "행정실", "buildingId": 1, "type": "ROOM", "rect": [186, 52, 96, 70]},
+        {"id": "main-1F-05", "name": "여화장실", "buildingId": 1, "type": "RESTROOM", "rect": [15, 88, 34, 71]},
+        {"id": "main-1F-06", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [15, 162, 34, 34], "link": "main-stair-west"},
+        {"id": "main-1F-07", "name": "보건실 앞 출입문", "buildingId": 1, "type": "ENTRANCE", "rect": [51, 162, 35, 34]},
+        {"id": "main-1F-08", "name": "엘리베이터", "buildingId": 1, "type": "ELEVATOR", "rect": [146, 162, 34, 34], "link": "main-elevator"},
+        {"id": "main-1F-09", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [234, 162, 49, 34], "link": "main-stair-center"},
+        {"id": "main-1F-10", "name": "방송실 앞 출입문", "buildingId": 1, "type": "ENTRANCE", "rect": [285, 198, 30, 35]},
+        {"id": "main-1F-11", "name": "방송실", "buildingId": 1, "type": "ROOM", "rect": [318, 89, 46, 70]},
+        {"id": "main-1F-12", "name": "Community Zone", "buildingId": 1, "type": "ROOM", "rect": [367, 89, 46, 70]},
+        {"id": "main-1F-13", "name": "교무실", "buildingId": 1, "type": "ROOM", "rect": [416, 89, 63, 70]},
+        {"id": "main-1F-14", "name": "교감실", "buildingId": 1, "type": "ROOM", "rect": [482, 89, 30, 70]},
+        {"id": "main-1F-15", "name": "창고", "buildingId": 1, "type": "ROOM", "rect": [515, 89, 30, 52]},
+        {"id": "main-1F-16", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [547, 88, 35, 53], "link": "main-stair-east"},
+        {"id": "main-1F-17", "name": "남화장실", "buildingId": 1, "type": "RESTROOM", "rect": [584, 71, 34, 88]},
+        {"id": "main-1F-18", "name": "창고", "buildingId": 2, "type": "ROOM", "rect": [621, 71, 33, 51], "note": "세면대 쪽에서 들어가는 위치로 보임(확인 필요)"},
+        {"id": "main-1F-19", "name": "세면대", "buildingId": 2, "type": "ROOM", "rect": [621, 125, 33, 34]},
+        {"id": "main-1F-20", "name": "AI서비스 구현 실습실", "buildingId": 2, "type": "ROOM", "rect": [657, 71, 49, 88]},
+        {"id": "main-1F-21", "name": "체력단련실", "buildingId": 2, "type": "ROOM", "rect": [708, 71, 48, 88]},
+        {"id": "main-1F-22", "name": "준비실", "buildingId": 2, "type": "ROOM", "rect": [759, 71, 34, 33], "door": [776, 104], "note": "인쇄실을 지나 들어가는 위치로 보임(확인 필요)"},
+        {"id": "main-1F-23", "name": "인쇄실", "buildingId": 2, "type": "ROOM", "rect": [760, 107, 33, 52]},
+        {"id": "main-1F-24", "name": "서버실", "buildingId": 2, "type": "ROOM", "rect": [796, 144, 33, 52]},
+        {"id": "main-1F-25", "name": "실습동 출입문", "buildingId": 2, "type": "ENTRANCE", "rect": [726, 198, 31, 35]},
+        {"id": "main-1F-26", "name": "계단", "buildingId": 2, "type": "STAIR", "rect": [759, 198, 71, 35], "link": "lab-stair"}
+      ]
+    },
+    {
+      "id": "main-2F",
+      "floor": "2F",
+      "group": "본관·실습동",
+      "width": 844,
+      "height": 210,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[51, 105], [316, 105], [316, 142], [792, 142]]
+      ],
+      "places": [
+        {"id": "main-2F-01", "name": "3학년 1반", "buildingId": 1, "type": "ROOM", "rect": [51, 15, 63, 70]},
+        {"id": "main-2F-02", "name": "3학년 2반", "buildingId": 1, "type": "ROOM", "rect": [117, 15, 63, 70]},
+        {"id": "main-2F-03", "name": "상담실", "buildingId": 1, "type": "ROOM", "rect": [183, 15, 48, 70]},
+        {"id": "main-2F-04", "name": "3학년 상담실", "buildingId": 1, "type": "ROOM", "rect": [234, 15, 48, 70]},
+        {"id": "main-2F-05", "name": "프로젝트 3실", "buildingId": 1, "type": "ROOM", "rect": [285, 15, 63, 70]},
+        {"id": "main-2F-06", "name": "여화장실", "buildingId": 1, "type": "RESTROOM", "rect": [15, 51, 34, 71]},
+        {"id": "main-2F-07", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [15, 124, 71, 35], "link": "main-stair-west"},
+        {"id": "main-2F-08", "name": "엘리베이터", "buildingId": 1, "type": "ELEVATOR", "rect": [146, 125, 34, 34], "link": "main-elevator"},
+        {"id": "main-2F-09", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [234, 125, 49, 34], "link": "main-stair-center"},
+        {"id": "main-2F-10", "name": "3학년 3반", "buildingId": 1, "type": "ROOM", "rect": [351, 51, 62, 71]},
+        {"id": "main-2F-11", "name": "3학년 4반", "buildingId": 1, "type": "ROOM", "rect": [416, 51, 63, 71]},
+        {"id": "main-2F-12", "name": "학생회의실", "buildingId": 1, "type": "ROOM", "rect": [482, 52, 30, 71]},
+        {"id": "main-2F-13", "name": "Online Study Cafe", "buildingId": 1, "type": "ROOM", "rect": [515, 52, 30, 71]},
+        {"id": "main-2F-14", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [547, 51, 35, 72], "link": "main-stair-east"},
+        {"id": "main-2F-15", "name": "남화장실", "buildingId": 1, "type": "RESTROOM", "rect": [584, 70, 34, 53]},
+        {"id": "main-2F-16", "name": "세면대", "buildingId": 2, "type": "ROOM", "rect": [621, 99, 33, 24]},
+        {"id": "main-2F-17", "name": "착용형 스마트기기 실습실", "buildingId": 2, "type": "ROOM", "rect": [657, 52, 49, 71]},
+        {"id": "main-2F-18", "name": "사물인터넷 서비스기획 실습실", "buildingId": 2, "type": "ROOM", "rect": [709, 52, 47, 71]},
+        {"id": "main-2F-19", "name": "3D 프린터 서버실", "buildingId": 2, "type": "ROOM", "rect": [760, 52, 33, 71]},
+        {"id": "main-2F-20", "name": "계단", "buildingId": 2, "type": "STAIR", "rect": [757, 162, 72, 34], "link": "lab-stair"}
+      ]
+    },
+    {
+      "id": "main-3F",
+      "floor": "3F",
+      "group": "본관·실습동",
+      "width": 844,
+      "height": 209,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[51, 105], [316, 105], [316, 141], [792, 141]]
+      ],
+      "places": [
+        {"id": "main-3F-01", "name": "2학년 1반", "buildingId": 1, "type": "ROOM", "rect": [51, 15, 63, 70]},
+        {"id": "main-3F-02", "name": "2학년 2반", "buildingId": 1, "type": "ROOM", "rect": [117, 15, 63, 70]},
+        {"id": "main-3F-03", "name": "상담실", "buildingId": 1, "type": "ROOM", "rect": [183, 15, 48, 70]},
+        {"id": "main-3F-04", "name": "2학년 상담실", "buildingId": 1, "type": "ROOM", "rect": [234, 15, 48, 70]},
+        {"id": "main-3F-05", "name": "프로젝트 2실", "buildingId": 1, "type": "ROOM", "rect": [285, 15, 63, 70]},
+        {"id": "main-3F-06", "name": "여화장실", "buildingId": 1, "type": "RESTROOM", "rect": [15, 51, 34, 71]},
+        {"id": "main-3F-07", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [15, 124, 71, 35], "link": "main-stair-west"},
+        {"id": "main-3F-08", "name": "엘리베이터", "buildingId": 1, "type": "ELEVATOR", "rect": [146, 125, 34, 34], "link": "main-elevator"},
+        {"id": "main-3F-09", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [234, 125, 49, 34], "link": "main-stair-center"},
+        {"id": "main-3F-10", "name": "2학년 3반", "buildingId": 1, "type": "ROOM", "rect": [351, 51, 62, 71]},
+        {"id": "main-3F-11", "name": "2학년 4반", "buildingId": 1, "type": "ROOM", "rect": [416, 51, 63, 71]},
+        {"id": "main-3F-12", "name": "네트워크 프로그래밍 실습실", "buildingId": 1, "type": "ROOM", "rect": [482, 51, 63, 71]},
+        {"id": "main-3F-13", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [547, 51, 35, 71], "link": "main-stair-east"},
+        {"id": "main-3F-14", "name": "남화장실", "buildingId": 1, "type": "RESTROOM", "rect": [584, 70, 34, 52]},
+        {"id": "main-3F-15", "name": "세면대", "buildingId": 2, "type": "ROOM", "rect": [621, 97, 33, 25]},
+        {"id": "main-3F-16", "name": "전자응용기기 SW개발 실습실", "buildingId": 2, "type": "ROOM", "rect": [657, 51, 49, 71]},
+        {"id": "main-3F-17", "name": "산업용 전자기기 SW개발 실습실", "buildingId": 2, "type": "ROOM", "rect": [708, 51, 48, 71]},
+        {"id": "main-3F-18", "name": "마이스터부/학생생활안전부", "buildingId": 2, "type": "ROOM", "rect": [759, 51, 34, 71]},
+        {"id": "main-3F-19", "name": "계단", "buildingId": 2, "type": "STAIR", "rect": [757, 160, 72, 36], "link": "lab-stair"}
+      ]
+    },
+    {
+      "id": "main-4F",
+      "floor": "4F",
+      "group": "본관·실습동",
+      "width": 633,
+      "height": 172,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[51, 104], [316, 104], [316, 140], [580, 140]]
+      ],
+      "places": [
+        {"id": "main-4F-01", "name": "1학년 1반", "buildingId": 1, "type": "ROOM", "rect": [51, 15, 63, 70]},
+        {"id": "main-4F-02", "name": "1학년 2반", "buildingId": 1, "type": "ROOM", "rect": [117, 15, 63, 70]},
+        {"id": "main-4F-03", "name": "상담실", "buildingId": 1, "type": "ROOM", "rect": [183, 15, 48, 70]},
+        {"id": "main-4F-04", "name": "1학년 상담실", "buildingId": 1, "type": "ROOM", "rect": [234, 15, 48, 70]},
+        {"id": "main-4F-05", "name": "프로젝트 1실", "buildingId": 1, "type": "ROOM", "rect": [285, 15, 63, 70]},
+        {"id": "main-4F-06", "name": "여화장실", "buildingId": 1, "type": "RESTROOM", "rect": [15, 51, 34, 71]},
+        {"id": "main-4F-07", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [15, 124, 71, 35], "link": "main-stair-west"},
+        {"id": "main-4F-08", "name": "엘리베이터", "buildingId": 1, "type": "ELEVATOR", "rect": [146, 125, 34, 34], "link": "main-elevator"},
+        {"id": "main-4F-09", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [234, 125, 49, 34], "link": "main-stair-center"},
+        {"id": "main-4F-10", "name": "1학년 3반", "buildingId": 1, "type": "ROOM", "rect": [351, 51, 62, 71]},
+        {"id": "main-4F-11", "name": "1학년 4반", "buildingId": 1, "type": "ROOM", "rect": [416, 51, 63, 71]},
+        {"id": "main-4F-12", "name": "스타트업실", "buildingId": 1, "type": "ROOM", "rect": [482, 50, 63, 71]},
+        {"id": "main-4F-13", "name": "계단", "buildingId": 1, "type": "STAIR", "rect": [547, 50, 35, 71], "link": "main-stair-east"},
+        {"id": "main-4F-14", "name": "남화장실", "buildingId": 1, "type": "RESTROOM", "rect": [584, 76, 34, 82]}
+      ]
+    },
+    {
+      "id": "geumbong-1F",
+      "floor": "1F",
+      "group": "금봉관",
+      "width": 616,
+      "height": 253,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[441, 75], [515, 75]],
+        [[441, 75], [441, 185], [566, 185]],
+        [[162, 97], [441, 97]]
+      ],
+      "places": [
+        {"id": "geumbong-1F-01", "name": "시청각실", "buildingId": 3, "type": "ROOM", "rect": [111, 15, 99, 70]},
+        {"id": "geumbong-1F-02", "name": "모바일로보틱스", "buildingId": 3, "type": "ROOM", "rect": [213, 44, 201, 41]},
+        {"id": "geumbong-1F-03", "name": "여화장실", "buildingId": 3, "type": "RESTROOM", "rect": [417, 44, 49, 19]},
+        {"id": "geumbong-1F-04", "name": "남화장실", "buildingId": 3, "type": "RESTROOM", "rect": [470, 44, 46, 19]},
+        {"id": "geumbong-1F-05", "name": "남화장실 옆 출입문", "buildingId": 3, "type": "ENTRANCE", "rect": [518, 66, 48, 19]},
+        {"id": "geumbong-1F-06", "name": "시청각실 옆 출입문", "buildingId": 3, "type": "ENTRANCE", "rect": [110, 88, 50, 19]},
+        {"id": "geumbong-1F-07", "name": "조리실", "buildingId": 3, "type": "ROOM", "rect": [14, 109, 145, 110]},
+        {"id": "geumbong-1F-08", "name": "조리원실", "buildingId": 3, "type": "ROOM", "rect": [14, 219, 70, 20], "door": [158, 109], "note": "조리실 안쪽"},
+        {"id": "geumbong-1F-09", "name": "영양상담실", "buildingId": 3, "type": "ROOM", "rect": [111, 219, 48, 20], "door": [158, 109], "note": "조리실 안쪽"},
+        {"id": "geumbong-1F-10", "name": "식생활관", "buildingId": 3, "type": "ROOM", "rect": [162, 109, 201, 131]},
+        {"id": "geumbong-1F-11", "name": "조리종사원 휴게공간", "buildingId": 3, "type": "ROOM", "rect": [366, 110, 48, 52]},
+        {"id": "geumbong-1F-12", "name": "당구장", "buildingId": 3, "type": "ROOM", "rect": [366, 165, 48, 52]},
+        {"id": "geumbong-1F-13", "name": "계단", "buildingId": 3, "type": "STAIR", "rect": [468, 88, 99, 19], "link": "geumbong-stair"},
+        {"id": "geumbong-1F-14", "name": "게임개발", "buildingId": 3, "type": "ROOM", "rect": [468, 109, 99, 20]},
+        {"id": "geumbong-1F-15", "name": "IT네트워크시스템", "buildingId": 3, "type": "ROOM", "rect": [468, 132, 99, 19]},
+        {"id": "geumbong-1F-16", "name": "클라우드컴퓨팅", "buildingId": 3, "type": "ROOM", "rect": [470, 153, 97, 20]},
+        {"id": "geumbong-1F-17", "name": "클라우드컴퓨팅 옆 출입문", "buildingId": 3, "type": "ENTRANCE", "rect": [570, 175, 34, 21]},
+        {"id": "geumbong-1F-18", "name": "모바일앱/사이버보안 옆 출입문", "buildingId": 3, "type": "ENTRANCE", "rect": [417, 198, 49, 19]},
+        {"id": "geumbong-1F-19", "name": "모바일앱/사이버보안", "buildingId": 3, "type": "ROOM", "rect": [468, 198, 135, 42]}
+      ]
+    },
+    {
+      "id": "geumbong-2F",
+      "floor": "2F",
+      "group": "금봉관",
+      "width": 618,
+      "height": 252,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[162, 97], [441, 97]],
+        [[441, 70], [441, 152], [566, 152]]
+      ],
+      "places": [
+        {"id": "geumbong-2F-01", "name": "Wee 클래스", "buildingId": 3, "type": "ROOM", "rect": [111, 14, 99, 72]},
+        {"id": "geumbong-2F-02", "name": "면접 준비실", "buildingId": 3, "type": "ROOM", "rect": [111, 66, 48, 41]},
+        {"id": "geumbong-2F-03", "name": "응용프로그래밍 개발실습실", "buildingId": 3, "type": "ROOM", "rect": [213, 44, 48, 41]},
+        {"id": "geumbong-2F-04", "name": "취업진로 강의실", "buildingId": 3, "type": "ROOM", "rect": [264, 44, 48, 42]},
+        {"id": "geumbong-2F-05", "name": "취업진로 교육부", "buildingId": 3, "type": "ROOM", "rect": [315, 44, 99, 41]},
+        {"id": "geumbong-2F-06", "name": "여화장실", "buildingId": 3, "type": "RESTROOM", "rect": [417, 44, 49, 20]},
+        {"id": "geumbong-2F-07", "name": "남화장실", "buildingId": 3, "type": "RESTROOM", "rect": [468, 44, 48, 19], "door": [470, 64]},
+        {"id": "geumbong-2F-08", "name": "계단", "buildingId": 3, "type": "STAIR", "rect": [471, 66, 96, 20], "link": "geumbong-stair"},
+        {"id": "geumbong-2F-09", "name": "AI자율주행실습실", "buildingId": 3, "type": "ROOM", "rect": [469, 88, 134, 52]},
+        {"id": "geumbong-2F-10", "name": "체육교구실", "buildingId": 3, "type": "ROOM", "rect": [65, 110, 145, 20]},
+        {"id": "geumbong-2F-11", "name": "체육실", "buildingId": 3, "type": "ROOM", "rect": [14, 110, 48, 20], "door": [185, 110], "note": "체육교구실 안쪽"},
+        {"id": "geumbong-2F-12", "name": "남탈의실", "buildingId": 3, "type": "ROOM", "rect": [213, 110, 48, 20]},
+        {"id": "geumbong-2F-13", "name": "남샤워실", "buildingId": 3, "type": "ROOM", "rect": [264, 110, 48, 20]},
+        {"id": "geumbong-2F-14", "name": "여샤워실", "buildingId": 3, "type": "ROOM", "rect": [315, 110, 48, 20]},
+        {"id": "geumbong-2F-15", "name": "여탈의실", "buildingId": 3, "type": "ROOM", "rect": [367, 110, 47, 19]},
+        {"id": "geumbong-2F-16", "name": "강당", "buildingId": 3, "type": "ROOM", "rect": [65, 132, 349, 85]},
+        {"id": "geumbong-2F-17", "name": "방송실", "buildingId": 3, "type": "ROOM", "rect": [14, 132, 48, 20], "door": [413, 142], "note": "강당 안쪽"},
+        {"id": "geumbong-2F-18", "name": "무대", "buildingId": 3, "type": "ROOM", "rect": [14, 154, 48, 41], "door": [413, 142], "note": "강당 안쪽"},
+        {"id": "geumbong-2F-19", "name": "창고", "buildingId": 3, "type": "ROOM", "rect": [14, 197, 48, 19], "door": [413, 142], "note": "강당 안쪽"},
+        {"id": "geumbong-2F-20", "name": "서버실", "buildingId": 3, "type": "ROOM", "rect": [504, 165, 99, 19]},
+        {"id": "geumbong-2F-21", "name": "본관 연결계단", "buildingId": 3, "type": "STAIR", "rect": [569, 142, 34, 21], "link": "geumbong-annex-stair"}
+      ]
+    },
+    {
+      "id": "geumbong-3F",
+      "floor": "3F",
+      "group": "금봉관",
+      "width": 618,
+      "height": 209,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[366, 97], [441, 97]],
+        [[441, 70], [441, 152], [566, 152]]
+      ],
+      "places": [
+        {"id": "geumbong-3F-01", "name": "도서실", "buildingId": 3, "type": "ROOM", "rect": [111, 15, 303, 70]},
+        {"id": "geumbong-3F-02", "name": "여직원 휴게실", "buildingId": 3, "type": "ROOM", "rect": [418, 44, 98, 19]},
+        {"id": "geumbong-3F-03", "name": "계단", "buildingId": 3, "type": "STAIR", "rect": [468, 66, 99, 20], "link": "geumbong-stair"},
+        {"id": "geumbong-3F-04", "name": "Complex Zone", "buildingId": 3, "type": "ROOM", "rect": [468, 88, 99, 52]},
+        {"id": "geumbong-3F-05", "name": "창고", "buildingId": 3, "type": "ROOM", "rect": [366, 110, 48, 19]},
+        {"id": "geumbong-3F-06", "name": "AI모델링실", "buildingId": 3, "type": "ROOM", "rect": [417, 165, 186, 30]},
+        {"id": "geumbong-3F-07", "name": "본관 연결계단", "buildingId": 3, "type": "STAIR", "rect": [569, 142, 34, 21], "link": "geumbong-annex-stair"}
+      ]
+    },
+    {
+      "id": "geumbong-4F",
+      "floor": "4F",
+      "group": "금봉관",
+      "width": 618,
+      "height": 210,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[164, 98], [442, 98]],
+        [[442, 70], [442, 98]]
+      ],
+      "places": [
+        {"id": "geumbong-4F-01", "name": "과학실", "buildingId": 3, "type": "ROOM", "rect": [113, 15, 100, 71]},
+        {"id": "geumbong-4F-02", "name": "음악실", "buildingId": 3, "type": "ROOM", "rect": [216, 45, 99, 41]},
+        {"id": "geumbong-4F-03", "name": "준비실", "buildingId": 3, "type": "ROOM", "rect": [318, 44, 48, 42]},
+        {"id": "geumbong-4F-04", "name": "남직원 휴게실", "buildingId": 3, "type": "ROOM", "rect": [369, 44, 48, 42]},
+        {"id": "geumbong-4F-05", "name": "계단", "buildingId": 3, "type": "STAIR", "rect": [468, 66, 99, 20], "link": "geumbong-stair"},
+        {"id": "geumbong-4F-06", "name": "과학준비실", "buildingId": 3, "type": "ROOM", "rect": [114, 90, 46, 18]}
+      ]
+    },
+    {
+      "id": "donghaeng-1F",
+      "floor": "1F",
+      "group": "동행관",
+      "width": 827,
+      "height": 185,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[40, 108], [810, 108]],
+        [[270, 40], [270, 108]],
+        [[490, 52], [490, 108]],
+        [[588, 108], [588, 129], [650, 129]]
+      ],
+      "places": [
+        {"id": "donghaeng-1F-01", "name": "주차장", "buildingId": 4, "type": "AREA", "rect": [15, 39, 255, 129], "door": [150, 108]},
+        {"id": "donghaeng-1F-02", "name": "주차장 쪽 출입문 1", "buildingId": 4, "type": "ENTRANCE", "rect": [288, 39, 57, 19]},
+        {"id": "donghaeng-1F-03", "name": "주차장 쪽 출입문 2", "buildingId": 4, "type": "ENTRANCE", "rect": [288, 71, 43, 21]},
+        {"id": "donghaeng-1F-04", "name": "현관", "buildingId": 4, "type": "AREA", "rect": [355, 17, 44, 75]},
+        {"id": "donghaeng-1F-05", "name": "엘리베이터", "buildingId": 4, "type": "ELEVATOR", "rect": [378, 70, 21, 21], "link": "donghaeng-elevator"},
+        {"id": "donghaeng-1F-06", "name": "계단", "buildingId": 4, "type": "STAIR", "rect": [402, 17, 43, 25], "door": [447, 52], "link": "donghaeng-stair-center"},
+        {"id": "donghaeng-1F-07", "name": "빅데이터분석실습실", "buildingId": 4, "type": "ROOM", "rect": [539, 50, 135, 42]},
+        {"id": "donghaeng-1F-08", "name": "AI프로그래밍실", "buildingId": 4, "type": "ROOM", "rect": [676, 50, 135, 42]},
+        {"id": "donghaeng-1F-09", "name": "창고", "buildingId": 4, "type": "ROOM", "rect": [539, 127, 30, 42]},
+        {"id": "donghaeng-1F-10", "name": "계단", "buildingId": 4, "type": "STAIR", "rect": [611, 138, 86, 31], "link": "donghaeng-stair-east"},
+        {"id": "donghaeng-1F-11", "name": "Healing Cafe", "buildingId": 4, "type": "ROOM", "rect": [699, 127, 112, 42]},
+        {"id": "donghaeng-1F-12", "name": "학교 후문", "buildingId": 4, "type": "ENTRANCE", "rect": [447, 149, 89, 20]}
+      ]
+    },
+    {
+      "id": "donghaeng-2F",
+      "floor": "2F",
+      "group": "동행관",
+      "width": 870,
+      "height": 177,
+      "metersPerPixel": 0.14,
+      "corridors": [
+        [[37, 67], [410, 67]],
+        [[410, 20], [410, 106], [854, 106]]
+      ],
+      "places": [
+        {"id": "donghaeng-2F-01", "name": "계단", "buildingId": 4, "type": "STAIR", "rect": [424, 14, 66, 20], "link": "donghaeng-stair-center"},
+        {"id": "donghaeng-2F-02", "name": "엘리베이터", "buildingId": 4, "type": "ELEVATOR", "rect": [424, 35, 21, 20], "link": "donghaeng-elevator"},
+        {"id": "donghaeng-2F-03", "name": "프로그래밍 실습2실", "buildingId": 4, "type": "ROOM", "rect": [493, 48, 87, 40]},
+        {"id": "donghaeng-2F-04", "name": "전문교육부", "buildingId": 4, "type": "ROOM", "rect": [676, 48, 88, 40]},
+        {"id": "donghaeng-2F-05", "name": "프로그래밍 실습1실", "buildingId": 4, "type": "ROOM", "rect": [767, 47, 88, 42]},
+        {"id": "donghaeng-2F-06", "name": "실습재료실1", "buildingId": 4, "type": "ROOM", "rect": [491, 124, 90, 42]},
+        {"id": "donghaeng-2F-07", "name": "실습재료실2", "buildingId": 4, "type": "ROOM", "rect": [583, 124, 67, 42]},
+        {"id": "donghaeng-2F-08", "name": "여화장실", "buildingId": 4, "type": "RESTROOM", "rect": [653, 124, 65, 41]},
+        {"id": "donghaeng-2F-09", "name": "계단", "buildingId": 4, "type": "STAIR", "rect": [721, 124, 89, 31], "link": "donghaeng-stair-east"}
+      ]
+    }
+  ]
+}
