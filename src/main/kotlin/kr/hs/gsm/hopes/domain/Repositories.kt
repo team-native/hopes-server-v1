@@ -57,6 +57,13 @@ interface RateLimitWindowRepository : JpaRepository<RateLimitWindow, String> {
 }
 
 interface InquiryRepository : JpaRepository<Inquiry, Long> {
+    fun findAllByOrderByCreatedAtDescIdDesc(pageable: Pageable): Slice<Inquiry>
+    fun findAllByUserIdOrderByCreatedAtDescIdDesc(userId: Long, pageable: Pageable): Slice<Inquiry>
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from Inquiry i where i.id = :id")
+    fun lock(@Param("id") id: Long): Inquiry?
+
     @Modifying
     @Query("delete from Inquiry inquiry where inquiry.user.id = :userId")
     fun deleteAllByUserId(@Param("userId") userId: Long): Int

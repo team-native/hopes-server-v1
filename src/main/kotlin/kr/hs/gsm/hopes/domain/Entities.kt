@@ -97,6 +97,11 @@ class Inquiry(
     var createdAt: Instant = Instant.now(),
     @Column(length = 255)
     var replyEmail: String? = null,
+    @Column(length = 4000) var answer: String? = null,
+    @Column(nullable = false, length = 20) var replyStatus: String = "NONE",
+    @Column(length = 100) var replyRequestId: String? = null,
+    var repliedAt: Instant? = null,
+    var replyAdminId: Long? = null,
 )
 
 @Entity
