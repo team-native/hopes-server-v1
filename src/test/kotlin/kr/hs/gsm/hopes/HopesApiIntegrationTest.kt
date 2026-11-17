@@ -38,6 +38,7 @@ class HopesApiIntegrationTest @Autowired constructor(
     private val conversationRepository: ConversationRepository,
     private val messageRepository: ChatMessageRepository,
     private val aiClient: kr.hs.gsm.hopes.ai.AiClient,
+    private val tokens: kr.hs.gsm.hopes.security.AccessTokenService,
 ) {
     @Test
     fun `missing OpenAI configuration selects Gemini without enabling external requests`() {
@@ -323,6 +324,25 @@ class HopesApiIntegrationTest @Autowired constructor(
             contentType = MediaType.APPLICATION_JSON
             content = """{"password":"password1"}"""
         }.andExpect { status { isNoContent() } }
+    }
+
+    @Test
+    fun `re-registering an email never revives a deleted account legacy token`() {
+        val email = "reregister-token@gsm.hs.kr"
+        signupAndAuthorization(email, "reregister-before")
+        val old = userRepository.findByEmail(email)!!
+        old.tokenVersion = 0
+        userRepository.saveAndFlush(old)
+        val legacy = "Bearer " + tokens.create(email, 0)
+        mockMvc.delete("/api/account") {
+            header("Authorization", legacy)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"password":"password1"}"""
+        }.andExpect { status { isNoContent() } }
+        val current = signupAndAuthorization(email, "reregister-after")
+        org.junit.jupiter.api.Assertions.assertNotEquals(0L, userRepository.findByEmail(email)!!.tokenVersion)
+        mockMvc.get("/api/mypage") { header("Authorization", legacy) }.andExpect { status { isUnauthorized() } }
+        mockMvc.get("/api/mypage") { header("Authorization", current) }.andExpect { status { isOk() } }
     }
 
     private fun signupAndAuthorization(email: String, username: String): String {

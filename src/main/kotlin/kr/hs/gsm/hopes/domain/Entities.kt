@@ -3,6 +3,8 @@ package kr.hs.gsm.hopes.domain
 import jakarta.persistence.*
 import java.time.Instant
 
+private val accountTokenVersions = java.security.SecureRandom()
+
 enum class Theme { DARK, LIGHT }
 enum class MessageRole { USER, ASSISTANT }
 enum class ClientPlatform { WEB, APP, UNKNOWN }
@@ -38,7 +40,7 @@ class User(
     @Column(nullable = false, length = 4000)
     var customPrompt: String = "",
     @Column(nullable = false)
-    var tokenVersion: Long = 0,
+    var tokenVersion: Long = accountTokenVersions.nextLong(1, Long.MAX_VALUE / 2),
     @Column(nullable = false)
     var createdAt: Instant = Instant.now(),
     @Enumerated(EnumType.STRING)
