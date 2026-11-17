@@ -234,6 +234,8 @@ class ChatService(
     private val discordQuestionLog: DiscordQuestionLogService,
     private val attachments: AttachmentService,
     private val catalogs: CatalogService,
+    private val navigation: kr.hs.gsm.hopes.feature.CampusNavigationService,
+    private val objectMapper: com.fasterxml.jackson.databind.ObjectMapper,
 ) {
     fun main(email: String, keyword: String?, page: Int, size: Int): MainResponse {
         val user = users.requireUser(email)
@@ -271,26 +273,44 @@ class ChatService(
         val user = users.requireUser(email)
         val conversation = requireConversation(user, id)
         val content = request.content.trim()
+        val location = navigation.chatLocation(content, request.destinationPlaceId)
+        val route = request.navigationOrigin?.let { origin ->
+            if (location == null || location["status"] != "DESTINATION_READY")
+                throw ApiException(HttpStatus.BAD_REQUEST, "경로를 안내하려면 목적지 하나를 선택해주세요")
+            val candidates = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(location)["candidates"]
+            navigation.route(origin, candidates[0]["place"]["id"].asText(), request.elevatorOnly)
+        }
         val context = catalogs.context(request.departmentId, request.specialtyId, request.specialtyIds)
         val digestParts = listOf(content, request.attachmentIds.joinToString(","), request.departmentId, request.specialtyId)
-        val digestInput = if (request.specialtyIds == null) digestParts else
+        val baseDigestInput = if (request.specialtyIds == null) digestParts else
             digestParts + catalogs.selection(request.specialtyId, request.specialtyIds).joinToString(",")
+        val digestInput = if (request.destinationPlaceId == null && request.navigationOrigin == null && !request.elevatorOnly) baseDigestInput else
+            baseDigestInput + listOf(request.destinationPlaceId, request.navigationOrigin, request.elevatorOnly)
+        fun withRoute(response: ChatResponse): ChatResponse {
+            if (route == null) return response
+            val last = response.messages.lastOrNull { it.role == MessageRole.ASSISTANT && it.location != null } ?: return response
+            val enriched = last.location!!.deepCopy<com.fasterxml.jackson.databind.node.ObjectNode>()
+            enriched.put("status", "ROUTE_READY")
+            enriched.put("requiresOrigin", false)
+            enriched.set<com.fasterxml.jackson.databind.JsonNode>("route", objectMapper.valueToTree(route))
+            return response.copy(messages = response.messages.map { if (it.id == last.id) it.copy(location = enriched) else it })
+        }
         val digest = MessageDigest.getInstance("SHA-256").digest(
             digestInput.joinToString("\u0000").toByteArray()
         ).joinToString("") { "%02x".format(it) }
         request.clientRequestId?.let { key ->
             messages.findByConversationIdAndClientRequestId(id, key)?.let { existing ->
                 if (existing.requestDigest != digest) throw ApiException(HttpStatus.CONFLICT, "재시도 키가 다른 요청에 사용되었습니다")
-                return detail(conversation)
+                return withRoute(detail(conversation))
             }
         }
         val prepared = attachments.prepare(user.id!!, request.attachmentIds)
         if (prepared.rows.isNotEmpty() && !ai.enabled) throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "첨부파일 AI 분석이 비활성화되어 있습니다")
-        if (prepared.rows.isEmpty() && ai.enabled && !ai.isReady() && !ai.canReplyWithoutRag(content)) {
+        if (location == null && prepared.rows.isEmpty() && ai.enabled && !ai.isReady() && !ai.canReplyWithoutRag(content)) {
             throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI가 아직 준비 중입니다. 잠시 후 다시 시도해주세요")
         }
         val receivedAt = Instant.now()
-        discordQuestionLog.publish(
+        if (location == null) discordQuestionLog.publish(
             DiscordQuestionLogEvent(
             conversationId = conversation.id!!,
             clientPlatform = clientPlatform,
@@ -311,7 +331,14 @@ class ChatService(
         // 외부 AI 호출은 최대 60초까지 걸릴 수 있어 트랜잭션(DB 커넥션) 밖에서 실행한다.
         // 실패하면 여기서 예외가 전파되어 아무것도 저장되지 않으므로 클라이언트는 같은 내용으로 재시도하면 된다.
         val media = attachments.historyMedia(history.map { it.id!! }, prepared)
-        val answer = if (ai.enabled || ai.canReplyWithoutRag(content)) ai.reply(user, history, content, context, media) else null
+        val answer = if (location != null && media.isEmpty()) {
+            val node = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(location)
+            if (node["candidates"].size() == 1) {
+                val place = node["candidates"][0]["place"]
+                "${place["name"].asText()}은 ${place["buildingName"].asText()} ${place["floor"].asText().replace("F", "층")}에 있어. 도면에서 표시된 위치를 확인해줘." +
+                    if (route == null) " 길찾기는 출발 층과 위치를 선택해줘." else ""
+            } else "같은 이름의 장소가 여러 곳 있어. 도면에서 목적지를 선택해줘."
+        } else if (ai.enabled || ai.canReplyWithoutRag(content)) ai.reply(user, history, content, context, media) else null
         transactionTemplate.executeWithoutResult {
             val saved = messages.saveAndFlush(
                 ChatMessage(
@@ -327,12 +354,12 @@ class ChatService(
             attachments.link(user.id!!, request.attachmentIds, saved.id!!)
             if (conversation.title == "새 대화") conversation.title = content.take(40)
             answer?.let {
-                messages.save(ChatMessage(conversation = conversation, role = MessageRole.ASSISTANT, content = it.take(12000), createdAt = Instant.now()))
+                messages.save(ChatMessage(conversation = conversation, role = MessageRole.ASSISTANT, content = it.take(12000), createdAt = Instant.now(), locationJson = location?.let(objectMapper::writeValueAsString)))
             }
             conversation.updatedAt = Instant.now()
             conversations.save(conversation)
         }
-        return detail(conversation)
+        return withRoute(detail(conversation))
     }
 
     private fun requireConversation(user: User, id: Long): Conversation =
@@ -348,7 +375,7 @@ class ChatService(
             value.title,
             result.content.asReversed().map {
                 val files = attachments.forMessage(it.id!!)
-                MessageResponse(it.id!!, it.role, it.content, it.createdAt, files, if (files.isEmpty()) null else "COMPLETED")
+                MessageResponse(it.id!!, it.role, it.content, it.createdAt, files, if (files.isEmpty()) null else "COMPLETED", location = it.locationJson?.let(objectMapper::readTree))
             },
             page,
             size,

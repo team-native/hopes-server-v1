@@ -82,6 +82,7 @@ class ChatMessage(
     var clientRequestId: String? = null,
     @Column(length = 64)
     var requestDigest: String? = null,
+    @Column(columnDefinition = "TEXT") var locationJson: String? = null,
     @Column(nullable = false)
     var createdAt: Instant = Instant.now(),
 )

@@ -18,6 +18,8 @@ GPS로 층·교실을 확정하지 않는다. QR/비콘, 실내 자동 추적, �
 
 ## API 흐름
 
+위치 질문에 채팅 도면 카드를 연결하는 요청·응답은 [CHAT_LOCATION_CARDS.md](CHAT_LOCATION_CARDS.md)를 참고한다. assistant 메시지의 `location`에 목적지 도면·좌표가 포함되며, `navigationOrigin`을 전달하면 `location.route`도 반환한다. 앱에서 이 필드를 별도 카드로 렌더링해야 한다.
+
 1. `GET /api/departments`, `GET /api/specialties`의 ID를 사용한다. 전체는 `null`. 학과와 전공 ID를 서로 대신 쓸 수 없다. 초기 전공 목록은 명세의 예시를 seed로 제공하며 DB의 `is_active`로 비활성화할 수 있다.
 2. `GET/PATCH /api/chat-preferences`로 선택을 저장한다. `{"departmentId":1,"specialtyIds":[104,105]}`처럼 전공을 여러 개 저장한다. 생략한 필드는 유지하고, `specialtyIds: []`로 전공을 해제한다. ID는 양수, 최대 20개이며 중복은 첫 등장 순서로 정리한다. 응답의 `specialtyIds`는 전체 선택, 기존 `specialtyId`는 첫 선택(없으면 null)이다. 기존 단일 `specialtyId`와 null 해제도 지원한다. 둘을 함께 보내면 단일 ID는 배열 첫 항목과 같아야 한다(불일치 400). 비활성/종류 불일치 ID는 409다. 기존 사용자 프로필의 major를 덮어쓰지 않는다. 질문/추천 요청에는 사용할 ID를 명시적으로 전달한다.
 3. `GET /api/question-recommendations?departmentId=1&specialtyIds=104,105&limit=4` (또는 `specialtyIds=104&specialtyIds=105`). 선택한 전공 중 하나라도 맞는 추천을 후보로 사용한다. 기존 단일 `specialtyId`도 지원한다. 반환된 `nextRefreshToken`을 다음 요청의 `refreshToken`으로 보내고 직전 노출 ID를 `excludeIds=1,2`로 보낸다. 전체 후보가 부족하면 이전 항목이 다시 나올 수 있다. limit 기본 4, 최대 20, 제외 ID 최대 100. 맞춤 후보가 없으면 기본 목록과 `fallbackUsed=true`.

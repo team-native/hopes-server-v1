@@ -91,6 +91,9 @@ data class SendMessageRequest(
     val specialtyId: Long? = null,
     @field:Size(min = 1, max = 100) val clientRequestId: String? = null,
     @field:Size(max = 20) val specialtyIds: List<Long>? = null,
+    @field:Size(max = 100) val destinationPlaceId: String? = null,
+    @field:Size(max = 100) val navigationOrigin: String? = null,
+    val elevatorOnly: Boolean = false,
 )
 data class InquiryRequest(
     @field:NotBlank @field:Size(max = CUSTOM_PROMPT_MAX_LENGTH) val content: String,
@@ -108,6 +111,7 @@ data class MessageResponse(
     val attachments: List<kr.hs.gsm.hopes.feature.AttachmentDto> = emptyList(),
     val analysisStatus: String? = null,
     val contentFormat: String = if (role == MessageRole.ASSISTANT) "MARKDOWN" else "PLAIN_TEXT",
+    val location: com.fasterxml.jackson.databind.JsonNode? = null,
 )
 data class ChatResponse(
     val id: Long,

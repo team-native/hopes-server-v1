@@ -13,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 
 @SpringBootTest(
     properties =
@@ -33,6 +34,59 @@ constructor(
     val users: UserRepository,
     val tokens: AccessTokenService,
 ) {
+    @org.springframework.boot.test.mock.mockito.MockBean
+    lateinit var discord: kr.hs.gsm.hopes.service.DiscordQuestionLogService
+    @Test
+    fun `chat location cards persist destination but never persist origin coordinates`() {
+        val user =
+            users.saveAndFlush(
+                User(email = "chat-map@example.invalid", username = "chat-map", nickname = "QA")
+            )
+        val auth = "Bearer " + tokens.create(user.email, user.tokenVersion)
+        fun send(
+            path: String,
+            body: String,
+            expected: Int = 200,
+        ): com.fasterxml.jackson.databind.JsonNode {
+            val response =
+                mvc.perform(
+                        post(path)
+                            .header("Authorization", auth)
+                            .contentType("application/json")
+                            .content(body)
+                    )
+                    .andReturn()
+                    .response
+            assertEquals(expected, response.status, response.contentAsString)
+            return mapper.readTree(response.contentAsString)
+        }
+        val id = send("/api/chats", "{}", 201)["id"].asLong()
+        val path = "/api/chats/$id/messages"
+        val first = send(path, """{"content":"보건실 위치 알려줘"}""")
+        val card = first["messages"].last()["location"]
+        assertEquals("DESTINATION_READY", card["status"].asText())
+        assertEquals("main-1F", card["candidates"][0]["floorPlan"]["id"].asText())
+        assertEquals("main-1F-02", card["candidates"][0]["place"]["id"].asText())
+        val body =
+            """{"content":"여기서 보건실까지 안내해줘","destinationPlaceId":"main-1F-02","navigationOrigin":"main-3F@120,104","clientRequestId":"route-card"}"""
+        val routed = send(path, body)
+        assertEquals("ROUTE_READY", routed["messages"].last()["location"]["status"].asText())
+        assertEquals(2, routed["messages"].last()["location"]["route"]["legs"].size())
+        val again = send(path, body)
+        assertEquals(routed["messages"].size(), again["messages"].size())
+        val loaded =
+            mapper.readTree(
+                mvc.perform(get("/api/chats/$id").header("Authorization", auth))
+                    .andReturn()
+                    .response
+                    .contentAsString
+            )
+        assertEquals("DESTINATION_READY", loaded["messages"].last()["location"]["status"].asText())
+        assertFalse(loaded["messages"].last()["location"].has("route"))
+        send(path, """{"content":"찾아줘","destinationPlaceId":"donghaeng-3F-01"}""", 404)
+        org.mockito.Mockito.verifyNoInteractions(discord)
+    }
+
     @Test
     fun `published route includes actual images and health office marker on first floor`() {
         val user =
