@@ -1,6 +1,6 @@
 {
   "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
-  "note": "Official public school layout PDF, cropped to registered navigation coordinates. Dormitory 3F-5F and 2F residential area are excluded. Route distances and inferred doors are estimates. GPS does not identify indoor floors.",
+  "note": "Official public school floor plans. Dormitory 3F-5F show floor layout only, no individual assignments or room routing. Route distances and inferred doors are estimates.",
   "school": {
     "id": "gsm",
     "name": "광주소프트웨어마이스터고등학교"
@@ -385,22 +385,28 @@
           "id": "donghaeng-3F",
           "floor": "3F",
           "label": "동행관 3F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/donghaeng-3F/image",
+          "facilities": []
         },
         {
           "id": "donghaeng-4F",
           "floor": "4F",
           "label": "동행관 4F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/donghaeng-4F/image",
+          "facilities": []
         },
         {
           "id": "donghaeng-5F",
           "floor": "5F",
           "label": "동행관 5F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/donghaeng-5F/image",
+          "facilities": []
         }
       ]
     }

@@ -155,7 +155,7 @@ steps: ["3F 2학년 1반에서 출발", "계단으로 1F 이동", "1F 교무실 
 
 계산 방식: 각 도면의 복도 중심선(가로·세로 꺾은선)을 그래프로 만들고, 방마다 문 → 중심선 연결선을 붙인다. 같은 `link`의 계단·엘리베이터는 위아래 층을, 서로 다른 건물 묶음의 출입문은 실외 간선(추정 거리)으로 잇고 다익스트라로 최단 경로를 구한다. 층 이동 비용은 계단 18m, 엘리베이터 20m로 환산하고, 예상 시간은 도보 1.2m/s, 계단 층당 15초, 엘리베이터 대기 30초 + 층당 5초로 계산한다. 시작할 때 자료를 검증해 시설 목록에 없는 이름, 시설 비공개 층의 장소, 비스듬한 복도, 다른 곳과 이어지지 않는 장소가 있으면 서버를 시작하지 않는다.
 
-공개 원칙: 길찾기는 `gsm-campus.json`에서 공개 승인되고 url이 있는 도면만 쓴다. 미승인 도면의 장소와 경유 경로는 차단한다. 현재는 학교 공식 공개 PDF를 기존 좌표에 맞춰 추출한 도면 10장을 제공한다. `GET /api/campus/floor-plans/{planId}/image`는 Bearer 인증이 필요하며 `floorPlan.width`, `height`와 정확히 같은 픽셀 크기의 PNG를 반환한다. 동행관 3~5F는 미공개이며, 2F의 생활관 영역은 이미지에서도 제거했다. 원본 출처와 이미지 해시는 `ops/campus/floorplan-sources.json`에 있다.
+공개 원칙: 길찾기는 `gsm-campus.json`에서 공개 승인되고 url이 있는 도면만 쓴다. 미승인 도면의 장소와 경유 경로는 차단한다. 현재는 학교 공식 공개 PDF에서 추출한 도면 13장을 제공한다. `GET /api/campus/floor-plans/{planId}/image`는 Bearer 인증이 필요하다. 동행관 3~5F는 층 개요 이미지만 제공하며 호실별 검색·길찾기 그래프는 등록하지 않았다. 2F의 생활관 영역은 이미지에서 제거했다. 원본 출처와 이미지 해시는 `ops/campus/floorplan-sources.json`에 있다. 채팅의 `FLOOR_OVERVIEW` 응답은 `floorPlans`로, 목적지 카드는 `candidates`로 내려간다.
 
 `GET /api/campus/navigation/route?from=main-3F-01&to=main-1F-02`는 본관 3F의 2학년 1반에서 본관 1F 보건실까지 안내한다. `to.area`는 실제 도면에서 보건실 방 영역이다. `distanceEstimated`, `geometryEstimated`는 true이며 축척·문 위치·실외 거리가 실측값이라는 뜻으로 표시하면 안 된다. `positionSource=USER_SELECTED_FLOORPLAN`이므로 앱은 출발 층과 도면 위 위치를 명시해야 한다. GPS로 실내 층을 자동 식별하는 기능은 아니다.
 

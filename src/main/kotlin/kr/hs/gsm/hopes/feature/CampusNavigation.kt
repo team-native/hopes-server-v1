@@ -347,57 +347,47 @@ internal class CampusNavigator(private val data: NavigationData, campus: CampusD
         val items =
             places.values
                 .filter { (m, p) ->
-                    m.id in approved && (q.isEmpty() || p.name.lowercase().contains(q))
+                    m.id in approved && (q.isEmpty() || placeMatches(p.name, q) || placeMatches(buildings[p.buildingId]?.name.orEmpty(), q))
                 }
                 .map { (m, p) -> placeView(m, p) }
         return mapOf("available" to approved.isNotEmpty(), "items" to items)
     }
 
+    private fun publishedPlanViews(building: CampusBuilding?, floor: String?): List<Map<String, Any?>> =
+        plans.values.filter { (b,p) -> b.approved(p) && (building == null || b.id == building.id) && (floor == null || p.floor == floor) }
+            .map { (b,p) ->
+                val map = maps[p.id] ?: maps[p.id.replace("lab-", "main-")]
+                val resource = org.springframework.core.io.ClassPathResource("campus/floorplans/${p.id.replace("lab-", "main-")}.png")
+                val image = if (map == null && resource.exists()) resource.inputStream.use { javax.imageio.ImageIO.read(it) } else null
+                mapOf("id" to p.id.replace("lab-", "main-"), "label" to p.label, "url" to p.url,
+                    "floor" to p.floor, "buildingId" to b.id, "group" to b.name,
+                    "width" to (map?.width ?: image?.width), "height" to (map?.height ?: image?.height))
+            }.distinctBy { it["url"] }
+
     fun chatLocation(question: String, destinationId: String?): Map<String, Any?>? {
         val floor = Regex("([1-9])\\s*(?:층|[fF])").findAll(question).lastOrNull()?.groupValues?.get(1)?.plus("F")
-        val building = buildings.values.filter { question.contains(it.name) }.maxByOrNull { question.lastIndexOf(it.name) }
-        val locationIntent = Regex("위치|어디|어딨|어딘|가는|가려|길|찾아|안내|없어|있어|있나").containsMatchIn(question)
-        val selected =
-            if (destinationId != null) {
-                listOf(
-                    places[destinationId]?.takeIf { it.first.id in approved }
-                        ?: fail(HttpStatus.NOT_FOUND, "공개된 목적지를 찾을 수 없습니다")
-                )
-            } else {
-                if (!locationIntent) return null
-                places.values.filter { (m, p) ->
-                    m.id in approved &&
-                        (floor == null || m.floor == floor) &&
-                        (building == null || p.buildingId == building.id) &&
-                        p.type !in setOf("STAIR", "ELEVATOR", "ENTRANCE") &&
-                        p.name.split('/').any { name ->
-                            name.length >= 2 &&
-                                question.replace(" ", "").contains(name.replace(" ", ""), true)
-                        }
-                }
-            }
-        if (selected.isEmpty()) {
-            // 배치도에 표기가 없다는 사실은 시설이 실제로 없다는 근거가 아니다.
-            if (question.contains("홈베이스") || (building != null && floor != null)) {
-                val scope = listOfNotNull(building?.name, floor?.replace("F", "층")).joinToString(" ")
-                val floorPlans = maps.values.filter { m -> m.id in approved && (floor == null || m.floor == floor) &&
-                    (building == null || plans[m.id]?.first?.id == building.id) }.map(::floorPlanView)
-                return mapOf("status" to "LOCATION_UNVERIFIED", "requiresOrigin" to false,
-                    "candidates" to emptyList<Any>(), "floorPlans" to floorPlans,
-                    "message" to "$scope 배치도에서 요청한 장소의 정확한 표기와 좌표를 확인하지 못했어. 표기가 없다고 실제 시설이 없다는 뜻은 아니야. 본관과 기숙사는 다른 건물이므로 기숙사 층 정보를 대신 안내하지 않을게.")
-            }
-            return null
-        }
-        val candidates =
-            selected.map { (m, p) ->
-                val e = endpoint(p.id)
-                mapOf("place" to endpointView(e), "floorPlan" to floorPlanView(m))
-            }
-        return mapOf(
+        val normalized = question.replace("기숙사", "동행관")
+        val building = buildings.values.filter { normalized.contains(it.name) }.maxByOrNull { normalized.lastIndexOf(it.name) }
+        val selected = if (destinationId != null) listOf(places[destinationId]?.takeIf { it.first.id in approved }
+            ?: fail(HttpStatus.NOT_FOUND, "공개된 목적지를 찾을 수 없습니다"))
+        else places.values.filter { (m,p) -> m.id in approved && (floor == null || m.floor == floor) &&
+            (building == null || p.buildingId == building.id) && p.type !in setOf("STAIR", "ELEVATOR", "ENTRANCE") &&
+            placeMatches(p.name, question) }
+        if (selected.isNotEmpty()) return mapOf(
             "status" to if (selected.size == 1) "DESTINATION_READY" else "SELECT_DESTINATION",
-            "candidates" to candidates,
-            "requiresOrigin" to (selected.size == 1),
-        )
+            "candidates" to selected.map { (m,p) -> mapOf("place" to endpointView(endpoint(p.id)), "floorPlan" to floorPlanView(m)) },
+            "requiresOrigin" to (selected.size == 1))
+        if (destinationId == null && (building != null || question.contains("홈베이스"))) {
+            val images = publishedPlanViews(building, floor)
+            val buildingFloorOnly = building != null && (floor == null ||
+                Regex("(?:본관|실습동|금봉관|동행관)\\s*[1-9]\\s*(?:층|[fF])\\s*(?:위치|어디|어딨|어딘|은|는|없어|있어|있나|안내|알려|\\?|$)").containsMatchIn(normalized))
+            val scope = listOfNotNull(building?.name, floor?.replace("F", "층")).joinToString(" ")
+            val message = if (buildingFloorOnly && images.isNotEmpty()) "$scope 도면이야. 찾는 장소나 출발 위치를 선택해줘."
+                else "$scope 배치도에서 요청한 장소의 정확한 표기와 좌표를 확인하지 못했어. 표기가 없다고 실제 시설이 없다는 뜻은 아니야. 확인되지 않은 위치는 추측하지 않을게."
+            return mapOf("status" to if (buildingFloorOnly && images.isNotEmpty()) "FLOOR_OVERVIEW" else "LOCATION_UNVERIFIED",
+                "requiresOrigin" to false, "candidates" to emptyList<Any>(), "floorPlans" to images, "message" to message)
+        }
+        return null
     }
 
     fun route(from: String, to: String, elevatorOnly: Boolean): Map<String, Any?> {

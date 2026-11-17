@@ -35,6 +35,34 @@ constructor(
     val tokens: AccessTokenService,
 ) {
     @Test
+    fun `second to third floor route returns both plans and dormitory questions stay floor specific`() {
+        val user = users.saveAndFlush(User(email = "floor-route@example.invalid", username = "floor-route", nickname = "QA"))
+        val auth = "Bearer " + tokens.create(user.email, user.tokenVersion)
+        fun send(path: String, body: String, expected: Int = 200): com.fasterxml.jackson.databind.JsonNode {
+            val response = mvc.perform(post(path).header("Authorization", auth).contentType("application/json").content(body)).andReturn().response
+            assertEquals(expected, response.status, response.contentAsString)
+            return mapper.readTree(response.contentAsString)
+        }
+        val id = send("/api/chats", "{}", 201)["id"].asLong()
+        val path = "/api/chats/$id/messages"
+        val route = send(path, """{"content":"2층에서 3층 홈베이스로 가고 싶어","destinationPlaceId":"main-3F-homebase","navigationOrigin":"main-2F-homebase"}""")["messages"].last()["location"]["route"]
+        assertEquals(listOf("main-2F", "main-3F"), route["legs"].map { it["floorPlan"]["id"].asText() })
+        val dorm = send(path, """{"content":"기숙사 4층 위치가 어디야?"}""")["messages"].last()
+        assertEquals("FLOOR_OVERVIEW", dorm["location"]["status"].asText())
+        assertTrue(dorm["content"].asText().contains("동행관 4층"))
+        assertFalse(dorm["content"].asText().contains("1층"))
+        val second = send(path, """{"content":"2층 없어?"}""")["messages"].last()
+        assertEquals("FLOOR_OVERVIEW", second["location"]["status"].asText())
+        assertEquals("donghaeng-2F", second["location"]["floorPlans"][0]["id"].asText())
+        assertEquals(3, send(path, """{"content":"기숙사 3층"}""")["messages"].last()["location"]["floorPlans"][0]["floor"].asText().removeSuffix("F").toInt())
+        val library = send(path, """{"content":"도서관"}""")["messages"].last()
+        assertEquals("도서실", library["location"]["candidates"][0]["place"]["name"].asText())
+        val search = mvc.perform(get("/api/campus/navigation/places").param("q", "2-3반 앞").header("Authorization", auth)).andReturn().response
+        assertEquals(200, search.status)
+        assertTrue(mapper.readTree(search.contentAsString)["items"].any { it["name"].asText() == "2학년 3반" })
+    }
+
+    @Test
     fun `homebase followups use main building floors and never invent dormitory answers`() {
         val user = users.saveAndFlush(User(email = "homebase@example.invalid", username = "homebase", nickname = "QA"))
         val auth = "Bearer " + tokens.create(user.email, user.tokenVersion)
@@ -160,7 +188,7 @@ constructor(
             png.getRGB(x, y) and 0xffffff,
         )
         assertEquals(
-            404,
+            200,
             mvc.perform(
                     get("/api/campus/floor-plans/donghaeng-3F/image").header("Authorization", auth)
                 )

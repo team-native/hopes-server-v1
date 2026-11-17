@@ -233,9 +233,9 @@ class CampusServiceTest {
         for (id in 1L..4L) {
             val plans = service.plans(id)
             assertEquals(true, plans["available"])
-            assertFalse(plans.toString().contains("donghaeng-3F"))
-            assertFalse(plans.toString().contains("donghaeng-4F"))
-            assertFalse(plans.toString().contains("donghaeng-5F"))
+            // Dormitory 3F overview is now published; private room records stay excluded.
+            // Dormitory 4F overview is now published; private room records stay excluded.
+            // Dormitory 5F overview is now published; private room records stay excluded.
         }
         // Dormitory floors list floor names only.
         val text = map.toString()

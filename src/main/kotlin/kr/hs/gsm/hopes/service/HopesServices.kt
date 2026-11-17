@@ -275,8 +275,7 @@ class ChatService(
         val content = request.content.trim()
         val recentUserQuestions = messages.findAllByConversationIdOrderByCreatedAtDescIdDesc(id, PageRequest.of(0, 8)).content
             .filter { it.role == MessageRole.USER }.take(3)
-        val followup = Regex("^\\s*(?:(?:본관|실습동|금봉관|동행관)\\s*)?[1-9]\\s*(?:층|[fF])").containsMatchIn(content) &&
-            Regex("없|있|어디|어때|은|는").containsMatchIn(content)
+        val followup = Regex("^\\s*[1-9]\\s*(?:층|[fF])\\s*(?:은|는)?\\s*(?:없|있|어디|어때)").containsMatchIn(content)
         val previousLocationQuestion = if (followup) recentUserQuestions.firstOrNull { it.content.contains("홈베이스") ||
             Regex("위치|어디|가는|길찾기").containsMatchIn(it.content) }?.content else null
         val locationQuestion = previousLocationQuestion?.let { "$it\n후속 질문: $content" } ?: content
@@ -340,7 +339,7 @@ class ChatService(
         val media = attachments.historyMedia(history.map { it.id!! }, prepared)
         val answer = if (location != null && media.isEmpty()) {
             val node = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(location)
-            if (node["status"].asText() == "LOCATION_UNVERIFIED") node["message"].asText()
+            if (node.has("message")) node["message"].asText()
             else if (node["candidates"].size() == 1) {
                 val place = node["candidates"][0]["place"]
                 "${place["name"].asText()}은 ${place["buildingName"].asText()} ${place["floor"].asText().replace("F", "층")}에 있어. 도면에서 표시된 위치를 확인해줘." +

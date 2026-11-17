@@ -230,8 +230,8 @@ class CampusService(
                 (buildingId == null || it.buildingId == buildingId) &&
                     (selectedFloor == null || it.floor.equals(selectedFloor, ignoreCase = true)) &&
                     (word.isEmpty() ||
-                        it.name.contains(word, ignoreCase = true) ||
-                        it.buildingName.contains(word, ignoreCase = true))
+                        placeMatches(it.name, word) ||
+                        placeMatches(it.buildingName, word))
             }
         return mapOf("items" to rows, "total" to rows.size)
     }
