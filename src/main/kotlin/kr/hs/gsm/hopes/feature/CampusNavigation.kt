@@ -384,8 +384,20 @@ internal class CampusNavigator(private val data: NavigationData, campus: CampusD
             val scope = listOfNotNull(building?.name, floor?.replace("F", "층")).joinToString(" ")
             val message = if (buildingFloorOnly && images.isNotEmpty()) "$scope 도면이야. 찾는 장소나 출발 위치를 선택해줘."
                 else "$scope 배치도에서 요청한 장소의 정확한 표기와 좌표를 확인하지 못했어. 표기가 없다고 실제 시설이 없다는 뜻은 아니야. 확인되지 않은 위치는 추측하지 않을게."
+            val floorCandidates = if (buildingFloorOnly) images.map { plan ->
+                mapOf(
+                    "place" to mapOf(
+                        "id" to plan["id"], "name" to plan["label"], "type" to "FLOOR",
+                        "buildingId" to plan["buildingId"], "buildingName" to plan["group"],
+                        "floor" to plan["floor"], "floorPlanId" to plan["id"],
+                        "x" to null, "y" to null, "area" to null,
+                    ),
+                    "floorPlan" to plan,
+                    "routable" to false,
+                )
+            } else emptyList()
             return mapOf("status" to if (buildingFloorOnly && images.isNotEmpty()) "FLOOR_OVERVIEW" else "LOCATION_UNVERIFIED",
-                "requiresOrigin" to false, "candidates" to emptyList<Any>(), "floorPlans" to images, "message" to message)
+                "requiresOrigin" to false, "candidates" to floorCandidates, "floorPlans" to images, "message" to message)
         }
         return null
     }

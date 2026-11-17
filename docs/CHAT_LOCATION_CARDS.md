@@ -92,3 +92,12 @@ navigationOrigin은 기존 길찾기 API와 동일하게 장소 ID 또는 `도�
 동행관 호실 ID는 `donghaeng-{층}F-room-{번호}-{동일표기순번}`이다. 예: `donghaeng-3F-room-301-1`, `donghaeng-4F-room-401-1`. `기숙사 401`, `401호 앞`으로도 검색할 수 있다. 3층→4층 경로는 두 도면과 계단 이동 안내를 주며, elevatorOnly=true면 중앙 엘리베이터를 사용한다. 중앙·동쪽 계단을 1~5층 기존 연결점과 잇는다. 문은 복도 쪽 테두리로 추정한 위치이며 실제 잠금·성별별 출입권한·통행 제한을 판단하지 않으므로 안내를 출입 허가로 표시하면 안 된다.
 
 본관 `navigationOrigin=main-2F-homebase`, `destinationPlaceId=main-3F-homebase` 요청은 `ROUTE_READY`이며 route.legs에 main-2F와 main-3F 두 도면을 순서대로 반환한다. 각 도면 path와 next의 층 이동 안내를 함께 그린다. 출발 건물·장소/좌표 없이 “2층”만 전달한 경우 정확한 시작점을 임의로 정하지 않는다.
+
+
+### 층 도면의 공통 카드 형식
+
+층 전체 도면도 장소 카드와 같은 `location.candidates[].floorPlan`에 제공한다.
+기존 `floorPlans`는 호환성을 위해 함께 유지한다. 상태는 `FLOOR_OVERVIEW`다.
+층 카드의 `place.type`은 `FLOOR`, `place.id`는 도면 ID이며 `routable=false`다.
+`x`, `y`, `area`는 null이다. 층 전체를 방이나 확정 목적지로 간주하거나 마커를 찍지 않는다.
+출발 위치는 도면에서 직접 고를 수 있고, 경로 요청의 목적지는 실제 장소 ID를 사용한다.

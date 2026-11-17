@@ -59,6 +59,13 @@ constructor(
             val overview = send(path, mapper.writeValueAsString(mapOf("content" to question)))["messages"].last()
             assertEquals("FLOOR_OVERVIEW", overview["location"]["status"].asText(), question)
             assertEquals(1, overview["location"]["floorPlans"].size(), question)
+            val candidate = overview["location"]["candidates"].single()
+            assertEquals(overview["location"]["floorPlans"][0], candidate["floorPlan"], question)
+            assertEquals("FLOOR", candidate["place"]["type"].asText(), question)
+            assertTrue(candidate["place"]["x"].isNull, question)
+            assertTrue(candidate["place"]["area"].isNull, question)
+            assertFalse(candidate["routable"].asBoolean(), question)
+
             assertFalse(overview["content"].asText().contains("확인하지 못했어"), question)
         }
         val library = send(path, """{"content":"도서관"}""")["messages"].last()
