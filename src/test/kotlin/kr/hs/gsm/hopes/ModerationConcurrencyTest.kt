@@ -55,6 +55,25 @@ constructor(
     private fun report(target: String, id: Long): Long =
         community.report(account().email, ReportRequest(target, id, "OTHER"))["id"] as Long
 
+    @Test
+    fun `concurrent detail reads increment one daily view and next day can count again`() {
+        val author = account()
+        val viewer = account()
+        val id = post(author)
+        val executor = Executors.newFixedThreadPool(6)
+        try {
+            val futures = (1..12).map { executor.submit<Long> { community.get(viewer.email, id).viewCount } }
+            futures.forEach { assertEquals(1L, it.get(15, TimeUnit.SECONDS)) }
+            assertEquals(1L, posts.findById(id).get().viewCount)
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM community_post_views WHERE post_id=?", Int::class.java, id))
+            jdbc.update("UPDATE community_post_views SET viewed_on=? WHERE post_id=?", java.sql.Date.valueOf(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")).minusDays(1)), id)
+            assertEquals(2L, community.get(viewer.email, id).viewCount)
+            assertEquals(2L, community.get(author.email, id).viewCount)
+            jdbc.update("UPDATE community_posts SET hidden=TRUE WHERE id=?", id)
+            assertEquals(HttpStatus.NOT_FOUND, assertThrows(ApiException::class.java) { community.get(viewer.email, id) }.status)
+        } finally { executor.shutdownNow() }
+    }
+
     // Observe an actual DB lock wait rather than relying on arbitrary timing.
     private fun awaitBlockedTransaction() {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
