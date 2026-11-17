@@ -55,6 +55,7 @@
         [[51, 105], [316, 105], [316, 142], [792, 142]]
       ],
       "places": [
+        {"id": "main-2F-homebase", "name": "홈베이스", "buildingId": 1, "type": "AREA", "rect": [234, 90, 49, 30], "door": [258.5, 105], "note": "사용자 확인 2026-11-17: 본관 2·3·4층 중앙계단 앞 공용 공간. 사각형은 중앙계단 앞 위치 안내용이며 실측 공간 경계가 아님."},
         {"id": "main-2F-01", "name": "3학년 1반", "buildingId": 1, "type": "ROOM", "rect": [51, 15, 63, 70]},
         {"id": "main-2F-02", "name": "3학년 2반", "buildingId": 1, "type": "ROOM", "rect": [117, 15, 63, 70]},
         {"id": "main-2F-03", "name": "상담실", "buildingId": 1, "type": "ROOM", "rect": [183, 15, 48, 70]},
@@ -88,6 +89,7 @@
         [[51, 105], [316, 105], [316, 141], [792, 141]]
       ],
       "places": [
+        {"id": "main-3F-homebase", "name": "홈베이스", "buildingId": 1, "type": "AREA", "rect": [234, 90, 49, 30], "door": [258.5, 105], "note": "사용자 확인 2026-11-17: 본관 2·3·4층 중앙계단 앞 공용 공간. 사각형은 중앙계단 앞 위치 안내용이며 실측 공간 경계가 아님."},
         {"id": "main-3F-01", "name": "2학년 1반", "buildingId": 1, "type": "ROOM", "rect": [51, 15, 63, 70]},
         {"id": "main-3F-02", "name": "2학년 2반", "buildingId": 1, "type": "ROOM", "rect": [117, 15, 63, 70]},
         {"id": "main-3F-03", "name": "상담실", "buildingId": 1, "type": "ROOM", "rect": [183, 15, 48, 70]},
@@ -120,6 +122,7 @@
         [[51, 104], [316, 104], [316, 140], [580, 140]]
       ],
       "places": [
+        {"id": "main-4F-homebase", "name": "홈베이스", "buildingId": 1, "type": "AREA", "rect": [234, 90, 49, 30], "door": [258.5, 104], "note": "사용자 확인 2026-11-17: 본관 2·3·4층 중앙계단 앞 공용 공간. 사각형은 중앙계단 앞 위치 안내용이며 실측 공간 경계가 아님."},
         {"id": "main-4F-01", "name": "1학년 1반", "buildingId": 1, "type": "ROOM", "rect": [51, 15, 63, 70]},
         {"id": "main-4F-02", "name": "1학년 2반", "buildingId": 1, "type": "ROOM", "rect": [117, 15, 63, 70]},
         {"id": "main-4F-03", "name": "상담실", "buildingId": 1, "type": "ROOM", "rect": [183, 15, 48, 70]},

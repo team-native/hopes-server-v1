@@ -354,6 +354,9 @@ internal class CampusNavigator(private val data: NavigationData, campus: CampusD
     }
 
     fun chatLocation(question: String, destinationId: String?): Map<String, Any?>? {
+        val floor = Regex("([1-9])\\s*(?:층|[fF])").findAll(question).lastOrNull()?.groupValues?.get(1)?.plus("F")
+        val building = buildings.values.filter { question.contains(it.name) }.maxByOrNull { question.lastIndexOf(it.name) }
+        val locationIntent = Regex("위치|어디|어딨|어딘|가는|가려|길|찾아|안내|없어|있어|있나").containsMatchIn(question)
         val selected =
             if (destinationId != null) {
                 listOf(
@@ -361,9 +364,11 @@ internal class CampusNavigator(private val data: NavigationData, campus: CampusD
                         ?: fail(HttpStatus.NOT_FOUND, "공개된 목적지를 찾을 수 없습니다")
                 )
             } else {
-                if (!Regex("위치|어디|어딨|어딘|가는|가려|길|찾아|안내").containsMatchIn(question)) return null
+                if (!locationIntent) return null
                 places.values.filter { (m, p) ->
                     m.id in approved &&
+                        (floor == null || m.floor == floor) &&
+                        (building == null || p.buildingId == building.id) &&
                         p.type !in setOf("STAIR", "ELEVATOR", "ENTRANCE") &&
                         p.name.split('/').any { name ->
                             name.length >= 2 &&
@@ -371,7 +376,18 @@ internal class CampusNavigator(private val data: NavigationData, campus: CampusD
                         }
                 }
             }
-        if (selected.isEmpty()) return null
+        if (selected.isEmpty()) {
+            // 배치도에 표기가 없다는 사실은 시설이 실제로 없다는 근거가 아니다.
+            if (question.contains("홈베이스") || (building != null && floor != null)) {
+                val scope = listOfNotNull(building?.name, floor?.replace("F", "층")).joinToString(" ")
+                val floorPlans = maps.values.filter { m -> m.id in approved && (floor == null || m.floor == floor) &&
+                    (building == null || plans[m.id]?.first?.id == building.id) }.map(::floorPlanView)
+                return mapOf("status" to "LOCATION_UNVERIFIED", "requiresOrigin" to false,
+                    "candidates" to emptyList<Any>(), "floorPlans" to floorPlans,
+                    "message" to "$scope 배치도에서 요청한 장소의 정확한 표기와 좌표를 확인하지 못했어. 표기가 없다고 실제 시설이 없다는 뜻은 아니야. 본관과 기숙사는 다른 건물이므로 기숙사 층 정보를 대신 안내하지 않을게.")
+            }
+            return null
+        }
         val candidates =
             selected.map { (m, p) ->
                 val e = endpoint(p.id)

@@ -34,6 +34,31 @@ constructor(
     val users: UserRepository,
     val tokens: AccessTokenService,
 ) {
+    @Test
+    fun `homebase followups use main building floors and never invent dormitory answers`() {
+        val user = users.saveAndFlush(User(email = "homebase@example.invalid", username = "homebase", nickname = "QA"))
+        val auth = "Bearer " + tokens.create(user.email, user.tokenVersion)
+        fun send(path: String, body: String, expected: Int = 200): com.fasterxml.jackson.databind.JsonNode {
+            val response = mvc.perform(post(path).header("Authorization", auth).contentType("application/json").content(body)).andReturn().response
+            assertEquals(expected, response.status, response.contentAsString)
+            return mapper.readTree(response.contentAsString)
+        }
+        val id = send("/api/chats", "{}", 201)["id"].asLong()
+        val path = "/api/chats/$id/messages"
+        val first = send(path, """{"content":"홈베이스 위치 알려줘"}""")["messages"].last()
+        assertEquals("SELECT_DESTINATION", first["location"]["status"].asText())
+        assertEquals(setOf("2F", "3F", "4F"), first["location"]["candidates"].map { it["place"]["floor"].asText() }.toSet())
+        val followup = send(path, """{"content":"4층은 없어?"}""")["messages"].last()
+        assertEquals("DESTINATION_READY", followup["location"]["status"].asText())
+        assertEquals("main-4F-homebase", followup["location"]["candidates"][0]["place"]["id"].asText())
+        assertFalse(followup["content"].asText().contains("기숙사"))
+        val explicit = send(path, """{"content":"본관 4층 홈베이스는 없어?"}""")["messages"].last()
+        assertEquals("main-4F", explicit["location"]["candidates"][0]["floorPlan"]["id"].asText())
+        val unknown = send(path, """{"content":"본관 4층 수영장 위치 알려줘"}""")["messages"].last()
+        assertEquals("LOCATION_UNVERIFIED", unknown["location"]["status"].asText())
+        org.mockito.Mockito.verifyNoInteractions(discord)
+    }
+
     @org.springframework.boot.test.mock.mockito.MockBean
     lateinit var discord: kr.hs.gsm.hopes.service.DiscordQuestionLogService
     @Test
