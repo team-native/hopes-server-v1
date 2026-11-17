@@ -36,6 +36,8 @@ sudo systemctl enable --now hopes
 
 ## 문의 답변과 개인정보 보관
 
+로그인 토큰은 운영에서 168시간(7일) 유효하며 refresh token은 없다. `POST /api/logout`은 계정의 tokenVersion을 올려 모든 기존 기기의 토큰을 무효화한다. 로그인 유지 체크는 서버 만료 시간을 바꾸지 않는다. 체크 해제 시 앱은 토큰을 메모리에만 두고 프로세스 종료 시 삭제하는 방식으로 구현한다. 오프라인 로그아웃은 로컬 토큰을 먼저 지우고, 서버 무효화 요청을 보류할 경우 기존 토큰으로 처리한다. 네트워크 복구 후 보류한 로그아웃을 먼저 완료하고 새 로그인을 진행해야 한다. 새 로그인 뒤 늦게 보낸 로그아웃도 같은 계정의 새 토큰을 무효화할 수 있다. 로그아웃의 401은 만료·무효화된 토큰으로 보고 보류 요청을 종료한다. 앱·모바일 코드는 이 저장소에서 변경하지 않는다.
+
 - 담당: 네이티브 팀, `team.native.official@gmail.com`. 운영자 계정은 `ADMIN` 권한으로 Swagger에 로그인한다.
 - `GET /api/admin/inquiries`와 `GET /api/admin/inquiries/{id}`로 문의를 확인하고, `POST /api/admin/inquiries/{id}/reply`에 `{"content":"답변", "clientRequestId":"고유한-요청-ID"}`를 보낸다.
 - 메일은 운영 SMTP에서 보내며 Reply-To는 팀 공식 주소다. 동일 문의·동일 요청 ID·동일 내용의 재시도는 발송 상태만 반환한다. 다른 답변 요청은 409다.
