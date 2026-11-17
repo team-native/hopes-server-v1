@@ -190,6 +190,9 @@ class CampusService(
         }
     }
 
+    /** 길찾기가 도면 공개 승인·층 공개 여부를 같은 기준으로 판단하도록 원본 자료를 넘긴다. */
+    internal fun referenceData(): CampusData? = data
+
     private fun registered() =
         data ?: fail(HttpStatus.SERVICE_UNAVAILABLE, "학교 기준 자료가 아직 등록되지 않았습니다")
 

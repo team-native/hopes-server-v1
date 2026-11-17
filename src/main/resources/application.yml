@@ -61,6 +61,7 @@ hopes:
     data-path: ${CAMPUS_DATA_PATH:}
     max-accuracy-meters: ${CAMPUS_MAX_ACCURACY_METERS:100}
     max-age-seconds: ${CAMPUS_MAX_AGE_SECONDS:120}
+    navigation-path: ${CAMPUS_NAVIGATION_PATH:}
   recommendations:
     policy-version: ${RECOMMENDATION_POLICY_VERSION:1}
   ai:

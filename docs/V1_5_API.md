@@ -12,8 +12,9 @@
 | Markdown | 원문 보존, contentFormat, 문단·목록·코드 형식 프롬프트 | 안전한 Markdown 렌더러, 코드 가로 스크롤·복사, 라이트/다크, HTML 실행 금지·링크 scheme 검증 |
 | 익명 커뮤니티 | 게시판, 글/댓글 CRUD, 최신순 검색·페이지, 멱등 좋아요·취소, 신고, 내 이력 | 목록/상세/작성/신고 화면 |
 | 현재 위치 | 정적 학교 기준 자료 조회, 오차·측정 시각을 고려한 비교, 대화 소유권 검증, 공개 승인 도면 조회 | CoreLocation 권한·측정, 지도 마커·오차 범위, 권한 거부 안내 |
+| 교내 길찾기 | 장소 목록·검색, 출발(장소 또는 도면 위 좌표)→도착 최단 경로, 층·건물별 구간과 도면 정보, 엘리베이터 전용 | 출발·도착 선택, 구간별 도면 이미지 위에 path 선 그리기, 단계 안내 |
 
-GPS로 층·교실을 확정하지 않는다. QR/비콘, 실내 자동 추적, 길찾기, 커뮤니티 이미지·답글·운영자 제재 화면은 포함하지 않는다. 위치 요청은 LLM/대화/Discord/DB로 전달하거나 저장하지 않는다. 배포 프록시에서도 요청 본문을 로깅하지 않아야 한다.
+GPS로 층·교실을 확정하지 않는다. QR/비콘, 실내 자동 추적, 커뮤니티 이미지·답글·운영자 제재 화면은 포함하지 않는다. 위치 요청은 LLM/대화/Discord/DB로 전달하거나 저장하지 않는다. 배포 프록시에서도 요청 본문을 로깅하지 않아야 한다.
 
 ## API 흐름
 
@@ -89,6 +90,7 @@ Swagger UI는 `/swagger-ui/index.html`, OpenAPI JSON은 `/v3/api-docs`에서 확
 | CAMPUS_DATA_PATH | 빈 값: 기준 자료 미등록 503 |
 | CAMPUS_MAX_ACCURACY_METERS | 100 |
 | CAMPUS_MAX_AGE_SECONDS | 120 |
+| CAMPUS_NAVIGATION_PATH | 빈 값: 길찾기 503 (CAMPUS_DATA_PATH 필요) |
 
 파일 한도와 보관기간 등은 명세에서 미확정이어서 위 값을 초기 운영값으로 선택했다. 운영 확정 정책에 맞게 조정한다. 첨부 디렉터리는 정적 웹서버에서 공개하지 않는 서버 전용 디렉터리/영속 볼륨이어야 한다. 서버가 여러 대면 같은 비공개 파일 볼륨을 사용해야 한다. 1시간마다 만료 파일/메타데이터가 사라진 파일을 정리한다. 삭제 직후 물리 파일 정리까지 최대 약 1시간의 유예가 있다. 디렉터리와 DB는 함께 백업해야 한다. HEIC 변환과 별도 악성파일 검사 엔진은 포함하지 않는다.
 
@@ -126,6 +128,41 @@ boundary: { type: "POLYGON", points: [{ latitude, longitude }, ...], source }
 - 일반 계단·출입문은 시설 목록에서 뺐다(건물 간 연결계단은 포함).
 
 `POST /api/campus/location-check` 또는 `/api/chats/{id}/location-check`에 latitude, longitude, horizontalAccuracyMeters, measuredAt(ISO 8601)을 보낸다. 오래된 측정은 422, 30초보다 미래 시각/잘못된 좌표는 400, 기준 자료 미등록은 503. 정확도 초과는 LOW_ACCURACY, 오차 범위 전체가 학교 안이면 NEAR_SCHOOL, 전체가 밖이면 OUTSIDE, 경계와 겹치면 UNKNOWN. 응답 카드는 일시적으로 표시하며 원 좌표를 저장하지 않는다.
+
+## 교내 길찾기
+
+`CAMPUS_NAVIGATION_PATH=ops/campus/gsm-navigation.json`으로 켠다(`CAMPUS_DATA_PATH`도 필요). 현재 위치는 GPS로 알 수 없어서 사용자가 고른 장소나 도면 위에서 누른 점을 출발지로 쓴다.
+
+- `GET /api/campus/navigation/places?q=` : 길찾기에 쓸 수 있는 장소 목록. `id, name, type(ROOM·RESTROOM·AREA·ENTRANCE·STAIR·ELEVATOR), buildingId, buildingName, floor, floorPlanId, note`
+- `GET /api/campus/navigation/route?from=&to=&elevatorOnly=false` : `from`/`to`는 장소 id(`main-3F-01`) 또는 도면 위 좌표(`main-3F@120.5,98`, 도면 원본 픽셀 기준)
+
+응답 요약:
+
+```text
+from, to: { id?, name?, type?, buildingName?, floor, floorPlanId, x, y, area?: {x,y,width,height}, note? }
+distanceMeters, floorsMoved, estimatedSeconds, outdoorEstimated, elevatorOnly
+legs: [
+  { type: "INDOOR", floorPlan: { id, label, url, width, height, floor, group, buildingId },
+    path: [{x,y}, ...], next: null | {type:"STAIR"|"ELEVATOR", toFloor} | {type:"OUTDOOR", toGroup} },
+  { type: "OUTDOOR", from: {placeId,name,buildingName}, to: {...}, distanceMeters, estimated: true, note }
+]
+steps: ["3F 2학년 1반에서 출발", "계단으로 1F 이동", "1F 교무실 도착"]
+```
+
+앱은 legs를 순서대로 보여 준다. INDOOR 구간은 `floorPlan.url` 이미지를 띄우고 path 좌표를 `x × 화면 너비 / floorPlan.width`, `y × 화면 높이 / floorPlan.height`로 바꿔 선으로 잇는다. 첫 구간은 출발 층, 마지막 구간은 도착 층 도면이며, 계단으로 지나치기만 하는 중간 층은 보내지 않는다. `from.area`·`to.area`로 출발·도착 방을 강조할 수 있다. 오류: 출발=도착·형식 오류·도면 밖 좌표 400, 없는 장소·미승인 도면 404, 경로 없음(예: 엘리베이터만으로 금봉관 위층) 422, 자료 미등록 503.
+
+계산 방식: 각 도면의 복도 중심선(가로·세로 꺾은선)을 그래프로 만들고, 방마다 문 → 중심선 연결선을 붙인다. 같은 `link`의 계단·엘리베이터는 위아래 층을, 서로 다른 건물 묶음의 출입문은 실외 간선(추정 거리)으로 잇고 다익스트라로 최단 경로를 구한다. 층 이동 비용은 계단 18m, 엘리베이터 20m로 환산하고, 예상 시간은 도보 1.2m/s, 계단 층당 15초, 엘리베이터 대기 30초 + 층당 5초로 계산한다. 시작할 때 자료를 검증해 시설 목록에 없는 이름, 시설 비공개 층의 장소, 비스듬한 복도, 다른 곳과 이어지지 않는 장소가 있으면 서버를 시작하지 않는다.
+
+공개 원칙: 길찾기는 `gsm-campus.json`에서 공개 승인되고 url이 있는 도면만 쓴다. 승인 전 도면의 장소는 목록·경로 어디에도 나오지 않고, 그 층을 지나는 경로도 만들지 않는다. 저장소 자료는 모두 승인 전이므로 지금은 장소 목록이 비어 있고(`available=false`) 경로는 404다. 승인되면 도면에 url과 `publicationApproved=true`만 넣으면 된다. 호스팅하는 이미지는 길찾기 자료의 width·height와 같은 원본(또는 같은 비율)이어야 한다.
+
+### 길찾기 자료 (`ops/campus/gsm-navigation.json`)
+
+배치도 PNG 13장 중 시설 공개 층 10장(본관·실습동 1~4F, 금봉관 1~4F, 동행관 1~2F)의 방·복도를 원본 픽셀 좌표로 옮겼다. 장소 153곳. 확인이 필요한 가정:
+
+- 배치도에 문 위치가 없어 복도에 가장 가까운 방 테두리를 문으로 봤다. 복도에 직접 닿지 않는 방(실습동 준비실·창고, 금봉관 조리원실·영양상담실·무대·방송실·체육실·창고)은 `door`와 `note`로 지나가는 방을 적었다.
+- 축척은 교실 폭 약 9m 기준 추정값(0.14m/px)이다. 건물 사이 실외 거리는 100m 추정값이며 응답에 `estimated`로 표시한다.
+- 금봉관 '본관 연결계단'은 금봉관 2F↔3F만 이었다. 본관 몇 층과 이어지는지 확인되면 link를 추가한다.
+- 동행관 1F 동쪽 계단과 2F 동쪽 계단은 도면 위치가 달라 같은 계단인지 확인이 필요하다. 동행관 3~5F(기숙사)와 2F 호실은 넣지 않았다. 당직실·외부 연결 계단·옥상은 출입 위치를 판단할 수 없어 뺐다.
 
 ## 검증 범위
 
