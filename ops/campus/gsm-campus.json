@@ -1,6 +1,6 @@
 {
   "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
-  "note": "Official public school floor plans. Dormitory 3F-5F show floor layout only, no individual assignments or room routing. Route distances and inferred doors are estimates.",
+  "note": "Official public floor plans and room numbers only; no resident assignments. Doors, scale and outdoor distances are estimated.",
   "school": {
     "id": "gsm",
     "name": "광주소프트웨어마이스터고등학교"
@@ -325,43 +325,90 @@
         {
           "floor": "3F",
           "facilities": [
-            "호실 301~320",
-            "화장실",
-            "샤워실",
-            "세탁실",
-            "사감실",
-            "침실",
-            "베란다"
+            "301호",
+            "302호",
+            "303호",
+            "304호",
+            "305호",
+            "306호",
+            "307호",
+            "308호",
+            "309호",
+            "310호",
+            "311호",
+            "312호",
+            "313호",
+            "314호",
+            "316호",
+            "317호",
+            "318호",
+            "319호",
+            "320호",
+            "중앙계단",
+            "엘리베이터",
+            "동쪽계단"
           ],
-          "facilitiesPublic": false,
-          "note": "기숙사 층. 원본에 313이 두 번 표기(315로 추정, 확인 필요). 공개 승인 전까지 시설 목록 비공개"
+          "facilitiesPublic": true,
+          "note": "학교 공개 배치도의 호실번호와 이동 시설만 등록. 입주자·배정 정보 없음. 3층 313 중복 표기는 현장 확인 전까지 두 후보 유지."
         },
         {
           "floor": "4F",
           "facilities": [
-            "호실 401~421",
-            "화장실",
-            "샤워실",
-            "세탁실",
-            "베란다"
+            "401호",
+            "402호",
+            "403호",
+            "404호",
+            "405호",
+            "406호",
+            "407호",
+            "408호",
+            "409호",
+            "410호",
+            "411호",
+            "412호",
+            "415호",
+            "416호",
+            "417호",
+            "418호",
+            "419호",
+            "420호",
+            "421호",
+            "414호",
+            "413호",
+            "중앙계단",
+            "엘리베이터",
+            "동쪽계단"
           ],
-          "facilitiesPublic": false,
-          "note": "기숙사 층. 공개 승인 전까지 시설 목록 비공개"
+          "facilitiesPublic": true,
+          "note": "학교 공개 배치도의 호실번호와 이동 시설만 등록. 입주자·배정 정보 없음. 3층 313 중복 표기는 현장 확인 전까지 두 후보 유지."
         },
         {
           "floor": "5F",
           "facilities": [
-            "호실 501~518",
-            "자기주도학습실",
-            "화장실",
-            "샤워실",
-            "세탁실",
-            "사감실",
-            "침실",
-            "베란다"
+            "501호",
+            "502호",
+            "503호",
+            "504호",
+            "505호",
+            "506호",
+            "507호",
+            "508호",
+            "509호",
+            "510호",
+            "511호",
+            "512호",
+            "513호",
+            "514호",
+            "515호",
+            "516호",
+            "517호",
+            "518호",
+            "중앙계단",
+            "엘리베이터",
+            "동쪽계단"
           ],
-          "facilitiesPublic": false,
-          "note": "기숙사 층. 공개 승인 전까지 시설 목록 비공개"
+          "facilitiesPublic": true,
+          "note": "학교 공개 배치도의 호실번호와 이동 시설만 등록. 입주자·배정 정보 없음. 3층 313 중복 표기는 현장 확인 전까지 두 후보 유지."
         }
       ],
       "floorPlans": [

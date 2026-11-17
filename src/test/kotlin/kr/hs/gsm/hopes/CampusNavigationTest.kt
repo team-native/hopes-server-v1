@@ -53,8 +53,7 @@ class CampusNavigationTest {
         @Suppress("UNCHECKED_CAST")
         val items = navigator.places(null)["items"] as List<Map<String, Any?>>
         assertTrue(items.size > 140)
-        // 기숙사 시설 비공개 층은 자료에 없다.
-        assertTrue(items.none { it["floorPlanId"] in setOf("donghaeng-3F", "donghaeng-4F", "donghaeng-5F") })
+        assertTrue(setOf("donghaeng-3F", "donghaeng-4F", "donghaeng-5F").all { floor -> items.any { it["floorPlanId"] == floor } })
         val from = id("main-3F", "2학년 1반")
         items.filter { it["id"] != from }.forEach { target ->
             val route = navigator.route(from, target["id"] as String, false)
@@ -131,7 +130,7 @@ class CampusNavigationTest {
         assertEquals(HttpStatus.BAD_REQUEST, status { navigator.route(office, office, false) })
         assertEquals(HttpStatus.NOT_FOUND, status { navigator.route("nope", office, false) })
         assertEquals(HttpStatus.BAD_REQUEST, status { navigator.route("main-1F@9999,1", office, false) })
-        assertEquals(HttpStatus.NOT_FOUND, status { navigator.route("donghaeng-3F@10,10", office, false) })
+        assertEquals(HttpStatus.NOT_FOUND, status { navigator.route("donghaeng-6F@10,10", office, false) })
 
         // 실제 자료(공개 승인 전)로는 장소도 경로도 나오지 않는다.
         val hidden = campus.copy(buildings = campus.buildings.map { b -> b.copy(floorPlans = b.floorPlans.map { it.copy(publicationApproved = false) }) })
@@ -150,9 +149,11 @@ class CampusNavigationTest {
         broken { d -> d.copy(maps = listOf(first.copy(places = first.places.map { if (it.type == "ROOM") it.copy(name = "없는 방") else it }))) }
         // 비스듬한 복도
         broken { d -> d.copy(maps = listOf(first.copy(corridors = listOf(listOf(listOf(10.0, 10.0), listOf(20.0, 30.0)))))) }
-        // 기숙사 비공개 층에 장소 등록
-        val dorm = navigation.maps.single { it.id == "donghaeng-2F" }
-        broken { d -> d.copy(maps = d.maps + dorm.copy(id = "donghaeng-3F", floor = "3F", places = dorm.places.map { it.copy(id = it.id + "x") })) }
+        // 공개 여부가 다시 철회된 층에 장소를 등록한 채 시작하면 거부한다.
+        val privateCampus = approvedCampus().copy(buildings = approvedCampus().buildings.map { b ->
+            if (b.id != 4L) b else b.copy(floors = b.floors.map { f -> if (f.floor == "3F") f.copy(facilitiesPublic = false) else f })
+        })
+        assertThrows(IllegalArgumentException::class.java) { CampusNavigator(navigation, privateCampus) }
         // 복도와 이어지지 않는 층(계단 link 없음)
         broken { d ->
             d.copy(

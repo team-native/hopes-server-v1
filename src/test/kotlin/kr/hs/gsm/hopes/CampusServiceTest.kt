@@ -240,7 +240,8 @@ class CampusServiceTest {
         // Dormitory floors list floor names only.
         val text = map.toString()
         assertTrue(text.contains("AI모델링실") && text.contains("빅데이터분석실습실"))
-        assertFalse(text.contains("301") || text.contains("자기주도학습실") || text.contains("사감실"))
+        assertTrue(text.contains("301호") && text.contains("401호") && text.contains("501호"))
+        assertFalse(text.contains("자기주도학습실") || text.contains("사감실"))
     }
 
     @Test

@@ -135,7 +135,7 @@
       "height": 177,
       "privateAreaOmittedLeftPixels": 0,
       "sha256": "43317877047782b2170c50ce58b014d4ca093d3af08387753eff071ffa5ef567",
-      "purpose": "floor overview only; no student assignments or room routing"
+      "purpose": "floor image and public room-number navigation; no resident assignments"
     },
     {
       "id": "donghaeng-4F",
@@ -148,7 +148,7 @@
       "height": 177,
       "privateAreaOmittedLeftPixels": 0,
       "sha256": "3325e6ae6339a5143f22f473cb0648f4d7acc70792529c2f994e19dfc279a453",
-      "purpose": "floor overview only; no student assignments or room routing"
+      "purpose": "floor image and public room-number navigation; no resident assignments"
     },
     {
       "id": "donghaeng-5F",
@@ -161,7 +161,7 @@
       "height": 177,
       "privateAreaOmittedLeftPixels": 0,
       "sha256": "745ace51815ebdee9d78e3ac89c24c1e7839d484065b75aa272e8c655e084216",
-      "purpose": "floor overview only; no student assignments or room routing"
+      "purpose": "floor image and public room-number navigation; no resident assignments"
     }
   ]
 }
