@@ -279,7 +279,10 @@ class ChatService(
         val previousLocationQuestion = if (followup) recentUserQuestions.firstOrNull { it.content.contains("홈베이스") ||
             Regex("위치|어디|가는|길찾기").containsMatchIn(it.content) }?.content else null
         val locationQuestion = previousLocationQuestion?.let { "$it\n후속 질문: $content" } ?: content
-        val location = navigation.chatLocation(locationQuestion, request.destinationPlaceId)
+        val candidateLocation = navigation.chatLocation(locationQuestion, request.destinationPlaceId)
+        val location = candidateLocation?.takeIf {
+            request.destinationPlaceId != null || ai.isNavigationLookup(content, recentUserQuestions.map { it.content })
+        }
         val route = request.navigationOrigin?.let { origin ->
             if (location == null || location["status"] != "DESTINATION_READY")
                 throw ApiException(HttpStatus.BAD_REQUEST, "경로를 안내하려면 목적지 하나를 선택해주세요")

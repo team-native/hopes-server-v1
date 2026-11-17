@@ -28,6 +28,17 @@ class AiChatService(
 
     fun isReady(): Boolean = rag.ready
 
+    fun isNavigationLookup(question: String, previousQuestions: List<String>): Boolean {
+        // AI-disabled installations retain their existing deterministic navigation mode.
+        if (!enabled) return true
+        if (!client.hasKey) return false
+        return try {
+            client.classifyNavigationLookup(previousQuestions.asReversed().map { "user" to it } + ("user" to question))
+        } catch (e: Exception) {
+            throw ApiException(HttpStatus.BAD_GATEWAY, "질문 의도 분석에 실패했습니다. 잠시 후 다시 시도해주세요")
+        }
+    }
+
     fun canReplyWithoutRag(question: String): Boolean =
         IDENTITY_QUESTION.containsMatchIn(question.trim())
 

@@ -34,6 +34,26 @@ constructor(
     val users: UserRepository,
     val tokens: AccessTokenService,
 ) {
+    @org.springframework.boot.test.mock.mockito.SpyBean
+    lateinit var intentAi: kr.hs.gsm.hopes.ai.AiChatService
+
+    @Test
+    fun `model OTHER decision keeps timetable question out of map responses`() {
+        val question = "2학년 1반 시간표 알려줘"
+        org.mockito.Mockito.doReturn(false).`when`(intentAi).isNavigationLookup(question, emptyList())
+        val user = users.saveAndFlush(User(email = "intent@example.invalid", username = "intent", nickname = "QA"))
+        val auth = "Bearer " + tokens.create(user.email, user.tokenVersion)
+        val created = mvc.perform(post("/api/chats").header("Authorization", auth).contentType("application/json").content("{}")).andReturn().response
+        assertEquals(201, created.status)
+        val id = mapper.readTree(created.contentAsString)["id"].asLong()
+        val response = mvc.perform(post("/api/chats/$id/messages").header("Authorization", auth).contentType("application/json").content(mapper.writeValueAsString(mapOf("content" to question)))).andReturn().response
+        assertEquals(200, response.status, response.contentAsString)
+        org.mockito.Mockito.verify(intentAi).isNavigationLookup(question, emptyList())
+        val rows = mapper.readTree(response.contentAsString)["messages"]
+        assertTrue(rows.none { it["location"] != null && !it["location"].isNull })
+        assertTrue(rows.none { it["content"].asText().contains("본관 3층에 있어") })
+    }
+
     @Test
     fun `second to third floor route returns both plans and dormitory questions stay floor specific`() {
         val user = users.saveAndFlush(User(email = "floor-route@example.invalid", username = "floor-route", nickname = "QA"))
