@@ -214,7 +214,7 @@ class CampusServiceTest {
     }
 
     @Test
-    fun `registered school reference data loads without coordinates or approved plans`() {
+    fun `registered school reference data exposes public floor plans without private dormitory floors`() {
         val service = service(Files.readString(java.nio.file.Path.of("ops/campus/gsm-campus.json")))
         val map = service.map()
         @Suppress("UNCHECKED_CAST") val buildings = map["buildings"] as List<Map<String, Any?>>
@@ -228,13 +228,14 @@ class CampusServiceTest {
                 service.check("t", LocationRequest(35.0, 126.0, 10.0, Instant.now()))
             }
         assertEquals(503, e.status.value())
-        // Layout images are not approved for publication yet.
-        assertEquals(false, map["floorPlansAvailable"])
+        // Official public floor plans are published; residential floors remain hidden.
+        assertEquals(true, map["floorPlansAvailable"])
         for (id in 1L..4L) {
             val plans = service.plans(id)
-            assertEquals(false, plans["available"])
-            assertEquals("NOT_APPROVED", plans["reason"])
-            assertEquals(emptyList<Any>(), plans["items"])
+            assertEquals(true, plans["available"])
+            assertFalse(plans.toString().contains("donghaeng-3F"))
+            assertFalse(plans.toString().contains("donghaeng-4F"))
+            assertFalse(plans.toString().contains("donghaeng-5F"))
         }
         // Dormitory floors list floor names only.
         val text = map.toString()

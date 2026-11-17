@@ -1,6 +1,6 @@
 {
-  "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16",
-  "note": "공개 건축 도면은 없음. 일반 계단·출입문은 시설 목록에서 제외(건물 간 연결계단은 포함). 학교 좌표·경계와 건물 좌표는 출처 있는 값을 받기 전까지 비워 둠(위치 비교는 503). 배치도 이미지는 공개 승인 전이라 모든 floorPlans가 publicationApproved=false이며 url이 없음.",
+  "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+  "note": "Official public school layout PDF, cropped to registered navigation coordinates. Dormitory 3F-5F and 2F residential area are excluded. Route distances and inferred doors are estimates. GPS does not identify indoor floors.",
   "school": {
     "id": "gsm",
     "name": "광주소프트웨어마이스터고등학교"
@@ -83,29 +83,33 @@
           "id": "main-1F",
           "floor": "1F",
           "label": "본관 1F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/main-1F/image"
         },
         {
           "id": "main-2F",
           "floor": "2F",
           "label": "본관 2F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/main-2F/image"
         },
         {
           "id": "main-3F",
           "floor": "3F",
           "label": "본관 3F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/main-3F/image"
         },
         {
           "id": "main-4F",
           "floor": "4F",
           "label": "본관 4F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/main-4F/image"
         }
       ]
     },
@@ -151,22 +155,25 @@
           "id": "lab-1F",
           "floor": "1F",
           "label": "실습동 1F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/main-1F/image"
         },
         {
           "id": "lab-2F",
           "floor": "2F",
           "label": "실습동 2F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/main-2F/image"
         },
         {
           "id": "lab-3F",
           "floor": "3F",
           "label": "실습동 3F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/main-3F/image"
         }
       ]
     },
@@ -251,29 +258,33 @@
           "id": "geumbong-1F",
           "floor": "1F",
           "label": "금봉관 1F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/geumbong-1F/image"
         },
         {
           "id": "geumbong-2F",
           "floor": "2F",
           "label": "금봉관 2F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/geumbong-2F/image"
         },
         {
           "id": "geumbong-3F",
           "floor": "3F",
           "label": "금봉관 3F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/geumbong-3F/image"
         },
         {
           "id": "geumbong-4F",
           "floor": "4F",
           "label": "금봉관 4F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/geumbong-4F/image"
         }
       ]
     },
@@ -355,15 +366,17 @@
           "id": "donghaeng-1F",
           "floor": "1F",
           "label": "동행관 1F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/donghaeng-1F/image"
         },
         {
           "id": "donghaeng-2F",
           "floor": "2F",
           "label": "동행관 2F 배치도",
-          "publicationApproved": false,
-          "source": "광주소프트웨어마이스터고등학교 홈페이지용 배치도 이미지(금봉관, 본관·실습동, 동행관), 사용자 제공 2026-11-16 — 공개 승인 전, 호스팅 URL 없음"
+          "publicationApproved": true,
+          "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+          "url": "https://hopes-v1.https.gsmsv.site/api/campus/floor-plans/donghaeng-2F/image"
         },
         {
           "id": "donghaeng-3F",

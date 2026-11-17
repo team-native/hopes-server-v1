@@ -134,7 +134,8 @@ class CampusNavigationTest {
         assertEquals(HttpStatus.NOT_FOUND, status { navigator.route("donghaeng-3F@10,10", office, false) })
 
         // 실제 자료(공개 승인 전)로는 장소도 경로도 나오지 않는다.
-        val unapproved = CampusNavigator(navigation, campus)
+        val hidden = campus.copy(buildings = campus.buildings.map { b -> b.copy(floorPlans = b.floorPlans.map { it.copy(publicationApproved = false) }) })
+        val unapproved = CampusNavigator(navigation, hidden)
         assertEquals(false, unapproved.places(null)["available"])
         assertEquals(emptyList<Any>(), unapproved.places(null)["items"])
         assertEquals(HttpStatus.NOT_FOUND, status { unapproved.route("main-3F-01", "main-1F-13", false) })

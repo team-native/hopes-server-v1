@@ -281,10 +281,7 @@
       "width": 870,
       "height": 177,
       "metersPerPixel": 0.14,
-      "corridors": [
-        [[37, 67], [410, 67]],
-        [[410, 20], [410, 106], [854, 106]]
-      ],
+      "corridors": [[[410, 20], [410, 106], [854, 106]]],
       "places": [
         {"id": "donghaeng-2F-01", "name": "계단", "buildingId": 4, "type": "STAIR", "rect": [424, 14, 66, 20], "link": "donghaeng-stair-center"},
         {"id": "donghaeng-2F-02", "name": "엘리베이터", "buildingId": 4, "type": "ELEVATOR", "rect": [424, 35, 21, 20], "link": "donghaeng-elevator"},

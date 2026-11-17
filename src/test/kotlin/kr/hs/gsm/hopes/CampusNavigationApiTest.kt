@@ -57,7 +57,7 @@ constructor(
                     if (plan["id"].asText() != "donghaeng-2F") {
                         (plan as ObjectNode).put("publicationApproved", true)
                         plan.put("url", "https://example.test/${plan["id"].asText()}.png")
-                    }
+                    } else (plan as ObjectNode).put("publicationApproved", false)
                 }
             }
             val dir = Files.createDirectories(Path.of("target/navigation"))

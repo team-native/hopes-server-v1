@@ -1,0 +1,128 @@
+{
+  "source": "https://gsm.jge.hs.kr/sub/page.php?page_code=info_14",
+  "pdfUrl": "https://gsm.jge.hs.kr/data_files/doc/pdf_view/web/map.pdf",
+  "pdfSha256": "da83f5171b529e9c588b9c7fbc44cf4a8dd151726fcec4fee7fb14f45c5049b8",
+  "scale": 0.55,
+  "images": [
+    {
+      "id": "main-1F",
+      "pdfPage": 2,
+      "originPdfPoints": [
+        64.9,
+        633.82
+      ],
+      "width": 844,
+      "height": 247,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "f3bc675369a4dd24a7e18b733e0cb3d58be4441dbb5b8564056ff1825f9090c3"
+    },
+    {
+      "id": "main-2F",
+      "pdfPage": 2,
+      "originPdfPoints": [
+        64.9,
+        478.01
+      ],
+      "width": 844,
+      "height": 210,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "2758841672a54089a72185678934dc8fef8c37a8710c6cc526043f3a3cd41302"
+    },
+    {
+      "id": "main-3F",
+      "pdfPage": 2,
+      "originPdfPoints": [
+        64.9,
+        320.81
+      ],
+      "width": 844,
+      "height": 209,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "2753e7c773af428270559c38f8d53ae7f4e3444498ecd52c3a3b7303ef0a37c9"
+    },
+    {
+      "id": "main-4F",
+      "pdfPage": 2,
+      "originPdfPoints": [
+        64.9,
+        174.17
+      ],
+      "width": 633,
+      "height": 172,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "573231d406f8f1d0a0fedbb77acdf05587d9a6f59f4047625ca851fb76960849"
+    },
+    {
+      "id": "geumbong-1F",
+      "pdfPage": 3,
+      "originPdfPoints": [
+        127.595,
+        628.25
+      ],
+      "width": 616,
+      "height": 253,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "777bff6aa67925506650990dcb2fd9f811d37f0534371596f4c715681a90a4e3"
+    },
+    {
+      "id": "geumbong-2F",
+      "pdfPage": 3,
+      "originPdfPoints": [
+        127.84,
+        463.49
+      ],
+      "width": 618,
+      "height": 252,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "1a9a1d2c100c20bd905ae2632e52386d9e3734921eebdefc3915a40f6cb6f9d0"
+    },
+    {
+      "id": "geumbong-3F",
+      "pdfPage": 3,
+      "originPdfPoints": [
+        127.9,
+        330.89
+      ],
+      "width": 618,
+      "height": 209,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "9861a65d05ccb8e29075de8d69c5ed7a931005089e5cd6d4c7b5e02cbb9331c9"
+    },
+    {
+      "id": "geumbong-4F",
+      "pdfPage": 3,
+      "originPdfPoints": [
+        127.54,
+        166.49
+      ],
+      "width": 618,
+      "height": 210,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "62dc49c1af6c3b54ce83f20411fc97826e8f60153c7c5b4d54e4d0d064056e8f"
+    },
+    {
+      "id": "donghaeng-1F",
+      "pdfPage": 4,
+      "originPdfPoints": [
+        71.615,
+        660.025
+      ],
+      "width": 827,
+      "height": 185,
+      "privateAreaOmittedLeftPixels": 0,
+      "sha256": "653584f364e5505de775e585fd6470ecb93446bde24a7924e3acd4fa46f5a7a9"
+    },
+    {
+      "id": "donghaeng-2F",
+      "pdfPage": 4,
+      "originPdfPoints": [
+        58.195,
+        537.59
+      ],
+      "width": 870,
+      "height": 177,
+      "privateAreaOmittedLeftPixels": 400,
+      "sha256": "1bf1cf4563c093b1be00fac5f4db78ee277377c8a771a7e273992dc50e4c765b"
+    }
+  ]
+}

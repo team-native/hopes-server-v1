@@ -450,6 +450,9 @@ internal class CampusNavigator(private val data: NavigationData, campus: CampusD
             "floorsMoved" to floorsMoved,
             "estimatedSeconds" to seconds.roundToInt(),
             "outdoorEstimated" to outdoor,
+            "distanceEstimated" to true,
+            "geometryEstimated" to true,
+            "positionSource" to "USER_SELECTED_FLOORPLAN",
             "legs" to legViews,
             "steps" to steps(start, end, legs),
         )
