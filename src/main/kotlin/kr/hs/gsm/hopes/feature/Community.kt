@@ -445,9 +445,10 @@ class CommunityService(
         val user = uid(email)
         val p = lockedPost(id)
         val day = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
-        if (p.authorId != user && jdbc.queryForObject(
-                "SELECT COUNT(*) FROM community_post_views WHERE post_id = ? AND user_id = ? AND viewed_on = ?",
-                Long::class.java, id, user, java.sql.Date.valueOf(day)) == 0L) {
+        // Locking read bypasses the earlier user lookup's MySQL REPEATABLE READ snapshot.
+        if (p.authorId != user && jdbc.queryForList(
+                "SELECT user_id FROM community_post_views WHERE post_id = ? AND user_id = ? AND viewed_on = ? FOR UPDATE",
+                Long::class.java, id, user, java.sql.Date.valueOf(day)).isEmpty()) {
             jdbc.update("INSERT INTO community_post_views(post_id,user_id,viewed_on) VALUES(?,?,?)", id, user, java.sql.Date.valueOf(day))
             p.viewCount += 1
         }

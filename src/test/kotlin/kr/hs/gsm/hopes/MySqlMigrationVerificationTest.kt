@@ -236,6 +236,20 @@ constructor(
         return "Bearer ${tokens.create(u.email, u.tokenVersion)}" to u
     }
 
+    @Test
+    fun `concurrent MySQL detail reads use current receipts instead of repeatable read snapshot`() {
+        val (owner, _) = account()
+        val (viewer, _) = account()
+        val board = call("GET", "/api/community/boards", owner)["items"].first { it["cohort"].isNull }["id"].asLong()
+        val id = call("POST", "/api/community/posts", owner, """{"boardId":$board,"title":"concurrent views","content":"QA"}""", 201)["id"].asLong()
+        val executor = java.util.concurrent.Executors.newFixedThreadPool(6)
+        try {
+            val reads = (1..12).map { executor.submit<Long> { call("GET", "/api/community/posts/$id", viewer)["viewCount"].asLong() } }
+            reads.forEach { assertEquals(1L, it.get(20, java.util.concurrent.TimeUnit.SECONDS)) }
+            assertEquals(1L, call("GET", "/api/community/posts/$id", owner)["viewCount"].asLong())
+        } finally { executor.shutdownNow() }
+    }
+
     private fun png(): ByteArray =
         ByteArrayOutputStream().use {
             ImageIO.write(BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), "png", it)
