@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 
+/** 시간표 조회일 가능성이 있는 질문만 AI 분류를 거친다(모든 질문마다 분류 호출을 늘리지 않기 위해). */
+private val TIMETABLE_HINT = Regex("""시간표|교시|무슨\s*수업|수업\s*뭐|과목\s*뭐""")
+
 private val GLOSSARY = ABBREVIATIONS.entries.joinToString(", ") { (abbr, full) -> "$abbr = $full" }
 
 /** 검색(RAG) + 프롬프트 구성 + 외부 AI 호출을 묶어 최종 답변을 만든다. */
@@ -18,6 +21,7 @@ class AiChatService(
     private val client: AiClient,
     private val rag: RagIndexService,
     private val meals: NeisMealService,
+    private val timetables: NeisTimetableService,
     private val campus: CampusService,
     @Value("\${hopes.ai.history-max-turns}") private val historyMaxTurns: Int,
 ) {
@@ -54,6 +58,12 @@ class AiChatService(
                 .map { (if (it.role == MessageRole.ASSISTANT) "model" else "user") to it.content }
             if (attachments.isEmpty() && client.classifyMealLookup(historyTurns + ("user" to question))) {
                 return meals.replyForMealLookup(question)
+            }
+            // 시간표 관련 단어가 있을 때만 AI 분류를 한 번 더 호출해 나이스 시간표로 답한다.
+            if (attachments.isEmpty() && TIMETABLE_HINT.containsMatchIn(question) &&
+                client.classifyTimetableLookup(historyTurns + ("user" to question))) {
+                val previousQuestions = history.filter { it.role == MessageRole.USER }.map { it.content }
+                return timetables.replyForTimetableLookup(question, previousQuestions)
             }
             if (!rag.ready && attachments.isEmpty()) {
                 throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI가 아직 준비 중입니다. 잠시 후 다시 시도해주세요")
